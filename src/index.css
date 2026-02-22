@@ -1437,14 +1437,16 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
+  gap: 12px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--glass-border-light);
+  flex-wrap: wrap;
 }
 
 @media (min-width: 768px) {
   .landing-nav {
-    padding-left: 48px;
-    padding-right: 48px;
+    padding: 20px 48px;
+    flex-wrap: nowrap;
   }
 }
 
@@ -1461,14 +1463,23 @@ a:hover {
 }
 
 .landing-logo-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   background: linear-gradient(135deg, #059669, #0d9488);
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
+  flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+  .landing-logo-icon:not(.landing-logo-icon--sm) {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
 }
 
 .landing-logo-icon--sm {
@@ -1477,9 +1488,16 @@ a:hover {
 }
 
 .landing-logo-text {
-  font-size: 1.15rem;
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .landing-logo-text {
+    font-size: 1.15rem;
+  }
 }
 
 .landing-logo-text span {
@@ -1489,14 +1507,29 @@ a:hover {
 .landing-nav-links {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+  .landing-nav-links {
+    gap: 12px;
+  }
 }
 
 .landing-nav-link {
-  padding: 8px 16px;
+  padding: 8px 12px;
   color: rgba(255, 255, 255, 0.7);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   text-decoration: none;
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .landing-nav-link {
+    padding: 8px 16px;
+    font-size: 0.875rem;
+  }
 }
 
 .landing-nav-link:hover {
@@ -1504,12 +1537,20 @@ a:hover {
 }
 
 .landing-nav-cta {
-  padding: 8px 16px;
+  padding: 8px 12px;
   border-radius: 8px;
   background: var(--accent-indigo);
   color: white;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   text-decoration: none;
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .landing-nav-cta {
+    padding: 8px 16px;
+    font-size: 0.875rem;
+  }
 }
 
 .landing-nav-cta:hover {
