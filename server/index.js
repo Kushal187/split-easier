@@ -1,29 +1,9 @@
 import './loadEnv.js';
-import express from 'express';
-import cors from 'cors';
 import mongoose from 'mongoose';
 
-import authRoutes from './routes/auth.js';
-import userRoutes from './routes/users.js';
-import householdRoutes from './routes/households.js';
-import billRoutes from './routes/bills.js';
-import { authMiddleware } from './middleware/auth.js';
+import app from './app.js';
 
-const app = express();
 const PORT = process.env.SERVER_PORT || process.env.PORT || 3001;
-
-app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
-
-app.use('/api/auth', authRoutes);
-app.use('/api/users', authMiddleware, userRoutes);
-app.use('/api/households', authMiddleware, householdRoutes);
-app.use('/api/households/:householdId/bills', authMiddleware, billRoutes);
-
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(err.status ?? 500).json({ error: err.message ?? 'Internal server error' });
-});
 
 async function start() {
   const uri = process.env.MONGO_URI;
