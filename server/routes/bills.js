@@ -49,6 +49,30 @@ function formatMoney(value) {
   return (Math.round(Number(value) * 100) / 100).toFixed(2);
 }
 
+function parseSplitwiseDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === 'number') {
+    const ms = value > 1e12 ? value : value * 1000;
+    const dt = new Date(ms);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  }
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+    const numeric = Number(value.trim());
+    const ms = numeric > 1e12 ? numeric : numeric * 1000;
+    const dt = new Date(ms);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  }
+  const dt = new Date(value);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function firstExpenseFromSplitwiseResult(result) {
+  if (result?.expense && typeof result.expense === 'object') return result.expense;
+  if (Array.isArray(result?.expenses) && result.expenses.length > 0) return result.expenses[0];
+  return null;
+}
+
 function billResponse(billDoc, nameMap = {}) {
   return {
     id: billDoc._id.toString(),
@@ -64,7 +88,11 @@ function billResponse(billDoc, nameMap = {}) {
       expenseId: billDoc?.splitwiseSync?.expenseId || null,
       syncedAt: billDoc?.splitwiseSync?.syncedAt || null,
       lastAttemptAt: billDoc?.splitwiseSync?.lastAttemptAt || null,
-      error: billDoc?.splitwiseSync?.error || null
+      error: billDoc?.splitwiseSync?.error || null,
+      expenseUpdatedAt: billDoc?.splitwiseSync?.expenseUpdatedAt || null,
+      lastLocalEditAt: billDoc?.splitwiseSync?.lastLocalEditAt || null,
+      lastSyncDirection: billDoc?.splitwiseSync?.lastSyncDirection || null,
+      conflict: Boolean(billDoc?.splitwiseSync?.conflict)
     }
   };
 }
@@ -129,13 +157,18 @@ function buildSplitwisePayload({ bill, household, actorUserId, users }) {
 }
 
 async function syncBillToSplitwise({ bill, household, actorUserId }) {
+  const previous = bill?.splitwiseSync || {};
   if (!household.splitwiseGroupId) {
     bill.splitwiseSync = {
       status: 'skipped',
       expenseId: null,
       syncedAt: null,
       lastAttemptAt: new Date(),
-      error: 'Household is not linked to a Splitwise group'
+      error: 'Household is not linked to a Splitwise group',
+      expenseUpdatedAt: null,
+      lastLocalEditAt: previous.lastLocalEditAt || new Date(),
+      lastSyncDirection: 'push',
+      conflict: false
     };
     await bill.save();
     return;
@@ -150,10 +183,14 @@ async function syncBillToSplitwise({ bill, household, actorUserId }) {
   } catch (err) {
     bill.splitwiseSync = {
       status: 'failed',
-      expenseId: null,
-      syncedAt: null,
+      expenseId: previous.expenseId || null,
+      syncedAt: previous.syncedAt || null,
       lastAttemptAt: new Date(),
-      error: err.message || 'Splitwise payload build failed'
+      error: err.message || 'Splitwise payload build failed',
+      expenseUpdatedAt: previous.expenseUpdatedAt || null,
+      lastLocalEditAt: previous.lastLocalEditAt || new Date(),
+      lastSyncDirection: 'push',
+      conflict: false
     };
     await bill.save();
     return;
@@ -164,33 +201,40 @@ async function syncBillToSplitwise({ bill, household, actorUserId }) {
       splitwiseFetch('/create_expense', accessToken, { method: 'POST', body: payload })
     );
 
-    const expenseId =
-      result?.expenses?.[0]?.id ||
-      result?.expense?.id ||
-      result?.expense_id ||
-      null;
+    const firstExpense = firstExpenseFromSplitwiseResult(result);
+    const expenseId = firstExpense?.id || result?.expense_id || null;
+    const remoteUpdatedAt = parseSplitwiseDate(firstExpense?.updated_at) || new Date();
 
     bill.splitwiseSync = {
       status: 'synced',
       expenseId: expenseId ? String(expenseId) : null,
       syncedAt: new Date(),
       lastAttemptAt: new Date(),
-      error: null
+      error: null,
+      expenseUpdatedAt: remoteUpdatedAt,
+      lastLocalEditAt: previous.lastLocalEditAt || new Date(),
+      lastSyncDirection: 'push',
+      conflict: false
     };
     await bill.save();
   } catch (err) {
     bill.splitwiseSync = {
       status: 'failed',
-      expenseId: null,
-      syncedAt: null,
+      expenseId: previous.expenseId || null,
+      syncedAt: previous.syncedAt || null,
       lastAttemptAt: new Date(),
-      error: err.message || 'Splitwise sync failed'
+      error: err.message || 'Splitwise sync failed',
+      expenseUpdatedAt: previous.expenseUpdatedAt || null,
+      lastLocalEditAt: previous.lastLocalEditAt || new Date(),
+      lastSyncDirection: 'push',
+      conflict: false
     };
     await bill.save();
   }
 }
 
 async function updateBillOnSplitwise({ bill, household, actorUserId }) {
+  const previous = bill?.splitwiseSync || {};
   if (!household.splitwiseGroupId || !bill?.splitwiseSync?.expenseId) {
     await syncBillToSplitwise({ bill, household, actorUserId });
     return bill?.splitwiseSync?.status === 'synced';
@@ -209,23 +253,33 @@ async function updateBillOnSplitwise({ bill, household, actorUserId }) {
     if (hasErrors) {
       throw new Error(result.errors[0] || 'Splitwise update failed');
     }
+    const firstExpense = firstExpenseFromSplitwiseResult(result);
+    const remoteUpdatedAt = parseSplitwiseDate(firstExpense?.updated_at) || new Date();
 
     bill.splitwiseSync = {
       status: 'synced',
       expenseId: bill.splitwiseSync.expenseId,
       syncedAt: new Date(),
       lastAttemptAt: new Date(),
-      error: null
+      error: null,
+      expenseUpdatedAt: remoteUpdatedAt,
+      lastLocalEditAt: previous.lastLocalEditAt || new Date(),
+      lastSyncDirection: 'push',
+      conflict: false
     };
     await bill.save();
     return true;
   } catch (err) {
     bill.splitwiseSync = {
       status: 'failed',
-      expenseId: bill?.splitwiseSync?.expenseId || null,
-      syncedAt: bill?.splitwiseSync?.syncedAt || null,
+      expenseId: previous.expenseId || null,
+      syncedAt: previous.syncedAt || null,
       lastAttemptAt: new Date(),
-      error: err.message || 'Splitwise update failed'
+      error: err.message || 'Splitwise update failed',
+      expenseUpdatedAt: previous.expenseUpdatedAt || null,
+      lastLocalEditAt: previous.lastLocalEditAt || new Date(),
+      lastSyncDirection: 'push',
+      conflict: false
     };
     await bill.save();
     return false;
@@ -277,7 +331,11 @@ router.post('/', async (req, res, next) => {
         expenseId: null,
         syncedAt: null,
         lastAttemptAt: null,
-        error: null
+        error: null,
+        expenseUpdatedAt: null,
+        lastLocalEditAt: new Date(),
+        lastSyncDirection: 'push',
+        conflict: false
       }
     });
 
@@ -344,6 +402,12 @@ router.patch('/:billId', async (req, res, next) => {
     bill.items = normalizedItems;
     bill.totals = totals;
     bill.totalAmount = totalAmount;
+    bill.splitwiseSync = {
+      ...(bill.splitwiseSync || {}),
+      lastLocalEditAt: new Date(),
+      lastSyncDirection: 'push',
+      conflict: false
+    };
     await bill.save();
     await updateBillOnSplitwise({ bill, household: req.household, actorUserId: req.user.id });
 

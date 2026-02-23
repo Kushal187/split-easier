@@ -23,7 +23,11 @@ const billSchema = new mongoose.Schema(
       expenseId: { type: String, default: null },
       syncedAt: { type: Date, default: null },
       lastAttemptAt: { type: Date, default: null },
-      error: { type: String, default: null }
+      error: { type: String, default: null },
+      expenseUpdatedAt: { type: Date, default: null },
+      lastLocalEditAt: { type: Date, default: null },
+      lastSyncDirection: { type: String, enum: ['push', 'pull'], default: null },
+      conflict: { type: Boolean, default: false }
     }
   },
   { timestamps: true }
