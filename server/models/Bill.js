@@ -17,7 +17,14 @@ const billSchema = new mongoose.Schema(
     items: [itemSchema],
     totals: { type: mongoose.Schema.Types.Mixed, default: {} },
     totalAmount: { type: Number, required: true },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    splitwiseSync: {
+      status: { type: String, enum: ['pending', 'synced', 'failed', 'skipped'], default: 'pending' },
+      expenseId: { type: String, default: null },
+      syncedAt: { type: Date, default: null },
+      lastAttemptAt: { type: Date, default: null },
+      error: { type: String, default: null }
+    }
   },
   { timestamps: true }
 );

@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import householdRoutes from './routes/households.js';
 import billRoutes from './routes/bills.js';
+import splitwiseRoutes from './routes/splitwise.js';
 import { authMiddleware } from './middleware/auth.js';
 
 const app = express();
@@ -20,6 +21,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', authMiddleware, userRoutes);
 app.use('/api/households', authMiddleware, householdRoutes);
 app.use('/api/households/:householdId/bills', authMiddleware, billRoutes);
+app.use('/api/splitwise', authMiddleware, splitwiseRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);

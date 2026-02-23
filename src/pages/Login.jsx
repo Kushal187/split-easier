@@ -10,6 +10,7 @@ export default function Login() {
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [splitwiseLoading, setSplitwiseLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -25,6 +26,11 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleSplitwiseSignIn() {
+    setSplitwiseLoading(true);
+    window.location.href = '/api/auth/splitwise/start';
   }
 
   return (
@@ -52,6 +58,11 @@ export default function Login() {
         </div>
 
         <div className="card-glass">
+          <button type="button" className="btn-splitwise" onClick={handleSplitwiseSignIn} disabled={splitwiseLoading || loading}>
+            {splitwiseLoading ? 'Redirecting to Splitwise…' : 'Continue with Splitwise'}
+          </button>
+          <div className="auth-divider">or use email and password</div>
+
           <form onSubmit={handleSubmit}>
             {error && (
               <div className="alert-error">{error}</div>
@@ -90,7 +101,7 @@ export default function Login() {
                 </button>
               </div>
             </div>
-            <button type="submit" className="btn-gradient" disabled={loading}>
+            <button type="submit" className="btn-gradient" disabled={loading || splitwiseLoading}>
               {loading ? (
                 <span className="spinner" />
               ) : (
