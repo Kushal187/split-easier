@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -52,6 +52,13 @@ function formatDate(iso) {
     hour: 'numeric',
     minute: '2-digit',
   });
+}
+
+function createClientId() {
+  if (typeof globalThis.crypto !== 'undefined' && typeof globalThis.crypto.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+  return `item-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 /** Per-person breakdown: what each person owes and for which items (item name + their share). */
@@ -298,8 +305,8 @@ export default function HouseholdPage() {
         <div className="page-orb page-orb--violet" style={{ width: 250, height: 250, bottom: 0, right: 0, filter: 'blur(60px)', opacity: 0.25 }} />
       </div>
 
-      <div className="page-content">
-        <header className="header-bar" style={{ position: 'sticky', top: 0 }}>
+      <div className="page-content app-shell">
+        <header className="header-bar">
           <div className="header-inner">
             <ThemeToggle />
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -320,7 +327,7 @@ export default function HouseholdPage() {
           </div>
         </header>
 
-        <main style={{ maxWidth: 896, margin: '0 auto', padding: '32px 24px' }}>
+        <main style={{ maxWidth: 896, margin: '0 auto', padding: '32px 24px calc(32px + var(--safe-area-bottom))' }}>
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -513,11 +520,13 @@ export default function HouseholdPage() {
 }
 
 function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = null, mode = 'create' }) {
+  const cardRef = useRef(null);
+  const billNameInputRef = useRef(null);
   const [billName, setBillName] = useState(initialBill?.billName || '');
   const [itemForm, setItemForm] = useState({ name: '', amount: '', splitBetween: [] });
   const [items, setItems] = useState(
     (initialBill?.items || []).map((i) => ({
-      id: i.id || crypto.randomUUID(),
+      id: i.id || createClientId(),
       name: i.name,
       amount: Number(i.amount),
       splitBetween: (i.splitBetween || []).map((id) => (typeof id === 'string' ? id : id.toString()))
@@ -525,6 +534,49 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
   );
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  function revealBillNameInput(behavior = 'smooth') {
+    const target = billNameInputRef.current || cardRef.current;
+    if (!target) return;
+    target.scrollIntoView({ behavior, block: 'center', inline: 'nearest' });
+  }
+
+  useEffect(() => {
+    let openTimer = 0;
+    let keyboardTimer = 0;
+    let rafId = 0;
+
+    function focusAndReveal() {
+      const input = billNameInputRef.current;
+      if (!input) return;
+      try {
+        input.focus({ preventScroll: true });
+      } catch {
+        input.focus();
+      }
+      revealBillNameInput('smooth');
+      keyboardTimer = window.setTimeout(() => revealBillNameInput('smooth'), 380);
+    }
+
+    rafId = window.requestAnimationFrame(() => {
+      openTimer = window.setTimeout(focusAndReveal, 120);
+    });
+
+    const viewport = window.visualViewport;
+    const handleViewportResize = () => {
+      if (document.activeElement === billNameInputRef.current) {
+        revealBillNameInput('auto');
+      }
+    };
+    viewport?.addEventListener('resize', handleViewportResize);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.clearTimeout(openTimer);
+      window.clearTimeout(keyboardTimer);
+      viewport?.removeEventListener('resize', handleViewportResize);
+    };
+  }, []);
 
   function toggleMember(userId) {
     setItemForm((c) => {
@@ -551,7 +603,7 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
     setItems((prev) => [
       ...prev,
       {
-        id: crypto.randomUUID(),
+        id: createClientId(),
         name: itemForm.name.trim(),
         amount,
         splitBetween: [...itemForm.splitBetween]
@@ -611,6 +663,7 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
 
   return (
     <motion.div
+      ref={cardRef}
       className="new-bill-card"
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
@@ -634,11 +687,13 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
         <div>
           <label className="label-glass">Bill name</label>
           <input
+            ref={billNameInputRef}
             type="text"
             value={billName}
             onChange={(e) => setBillName(e.target.value)}
+            onFocus={() => window.setTimeout(() => revealBillNameInput('smooth'), 200)}
             placeholder="e.g. Dinner at Pizza Place"
-            className="input-glass"
+            className="input-glass bill-name-input"
             style={{ minHeight: 40, padding: '10px 14px', fontSize: '0.875rem' }}
             autoFocus
           />

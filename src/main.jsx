@@ -9,6 +9,23 @@ import './index.css';
 
 registerSW({ immediate: true });
 
+const standaloneMedia = window.matchMedia('(display-mode: standalone)');
+const isIOS = /iPad|iPhone|iPod/.test(window.navigator.userAgent);
+
+function applyRuntimeDisplayClasses() {
+  const inStandalone = standaloneMedia.matches || window.navigator.standalone === true;
+  document.documentElement.classList.toggle('is-standalone', inStandalone);
+  document.documentElement.classList.toggle('is-ios', isIOS);
+}
+
+applyRuntimeDisplayClasses();
+
+if (typeof standaloneMedia.addEventListener === 'function') {
+  standaloneMedia.addEventListener('change', applyRuntimeDisplayClasses);
+} else if (typeof standaloneMedia.addListener === 'function') {
+  standaloneMedia.addListener(applyRuntimeDisplayClasses);
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>

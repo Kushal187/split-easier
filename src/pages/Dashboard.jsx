@@ -104,7 +104,7 @@ export default function Dashboard() {
         <div className="page-orb page-orb--violet" style={{ width: 300, height: 300, bottom: 0, right: 0, filter: 'blur(80px)', opacity: 0.3 }} />
       </div>
 
-      <div className="page-content">
+      <div className="page-content app-shell">
         <header className="header-bar">
           <div className="header-inner">
             <Link to="/dashboard" className="header-logo">
@@ -131,7 +131,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <main className="app" style={{ maxWidth: 896, margin: '0 auto', padding: '40px 24px' }}>
+        <main className="app" style={{ maxWidth: 896, margin: '0 auto', padding: '40px 24px calc(40px + var(--safe-area-bottom))' }}>
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -141,9 +141,9 @@ export default function Dashboard() {
             <p className="welcome-sub">Manage your shared households and bills.</p>
           </motion.div>
 
-          <div className="section-header">
+          <div className="section-header dashboard-section-header">
             <h2 className="section-label">Households</h2>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="dashboard-actions">
               <button
                 type="button"
                 className="btn-sm-primary"

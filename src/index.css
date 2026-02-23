@@ -23,6 +23,11 @@
   --radius: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --ios-fixed-header-offset: calc(var(--safe-area-top) + 76px);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   color: var(--text);
@@ -309,9 +314,41 @@
   box-sizing: border-box;
 }
 
+html {
+  height: 100%;
+  background: var(--page-bg);
+  overscroll-behavior-y: none;
+}
+
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: 100%;
+  background: var(--page-bg);
+  overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#root {
+  min-height: 100%;
+}
+
+.is-standalone body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.is-standalone #root {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
+  background: var(--page-bg);
 }
 
 h1, h2, h3, p {
@@ -331,6 +368,7 @@ a:hover {
 /* ─── Page shell (reference: min-h-screen bg-[#070b14]) ───────────────────── */
 .page-dark {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--page-bg);
   color: var(--text);
   position: relative;
@@ -393,6 +431,7 @@ a:hover {
 /* ─── Auth layout (centered) ─────────────────────────────────────────────── */
 .auth-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -633,6 +672,7 @@ a:hover {
   flex-direction: column;
   gap: 28px;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Header bar (reference: border-b border-white/5 bg-white/2 backdrop-blur) */
@@ -640,8 +680,31 @@ a:hover {
   border-bottom: 1px solid var(--glass-border-light);
   background: rgba(255, 255, 255, 0.02);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   margin: 0 -24px;
   padding: 0 32px;
+  padding-top: var(--safe-area-top);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.is-ios.is-standalone .header-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  margin: 0;
+  width: 100%;
+  padding-left: calc(24px + var(--safe-area-left));
+  padding-right: calc(24px + var(--safe-area-right));
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.is-ios.is-standalone .app-shell {
+  padding-top: var(--ios-fixed-header-offset);
 }
 
 .header-inner {
@@ -763,6 +826,11 @@ a:hover {
 
 .section-header .section-label {
   margin-bottom: 0;
+}
+
+.dashboard-actions {
+  display: flex;
+  gap: 8px;
 }
 
 /* Button small primary (New household, New bill) */
@@ -1212,6 +1280,12 @@ a:hover {
   background: var(--glass-bg);
   border: 1px solid rgba(16, 185, 129, 0.2);
   overflow: hidden;
+  scroll-margin-top: calc(var(--ios-fixed-header-offset) + 12px);
+}
+
+.is-ios.is-standalone .bill-name-input {
+  scroll-margin-top: calc(var(--ios-fixed-header-offset) + 12px);
+  scroll-margin-bottom: 300px;
 }
 
 .new-bill-card-header {
@@ -2184,5 +2258,24 @@ a:hover {
   }
   .new-bill-grid {
     grid-template-columns: 1fr;
+  }
+  .dashboard-section-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .dashboard-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .dashboard-actions .btn-sm-primary {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+    padding: 10px 12px;
+    line-height: 1.2;
+    text-align: center;
   }
 }

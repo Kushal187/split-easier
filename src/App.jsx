@@ -7,6 +7,12 @@ import HouseholdPage from './pages/HouseholdPage.jsx';
 import LandingPage from './pages/LandingPage.jsx';
 import SplitwiseCallback from './pages/SplitwiseCallback.jsx';
 
+function isIOSStandalone() {
+  if (typeof document === 'undefined') return false;
+  const classes = document.documentElement.classList;
+  return classes.contains('is-ios') && classes.contains('is-standalone');
+}
+
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) {
@@ -48,6 +54,9 @@ function HomeRoute() {
   }
   if (user) {
     return <Navigate to="/dashboard" replace />;
+  }
+  if (isIOSStandalone()) {
+    return <Navigate to="/login" replace />;
   }
   return <LandingPage />;
 }
