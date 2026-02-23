@@ -78,8 +78,8 @@ function renderOauthBridgeHtml({ token, user, error }) {
       try {
         const token = ${tokenLiteral};
         const user = ${userLiteral};
-        localStorage.setItem('splitWiserToken', token);
-        localStorage.setItem('splitWiserUser', JSON.stringify(user));
+        localStorage.setItem('splitEasierToken', token);
+        localStorage.setItem('splitEasierUser', JSON.stringify(user));
         location.replace('/dashboard');
       } catch (e) {
         location.replace('/login');

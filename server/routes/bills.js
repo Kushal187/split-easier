@@ -76,7 +76,7 @@ function buildSplitwiseDetails(items, memberNameById = {}) {
       .join(', ');
     return `${item.name}: ${formatMoney(item.amount)} (${people || 'unassigned'})`;
   });
-  return `SplitWiser itemized bill\n${lines.join('\n')}`;
+  return `SplitEasier itemized bill\n${lines.join('\n')}`;
 }
 
 function buildSplitwisePayload({ bill, household, actorUserId, users }) {

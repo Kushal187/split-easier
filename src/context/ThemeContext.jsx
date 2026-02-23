@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const STORAGE_THEME = 'splitWiserTheme';
+const STORAGE_THEME = 'splitEasierTheme';
 
 const ThemeContext = createContext(null);
 

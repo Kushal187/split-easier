@@ -46,7 +46,7 @@ export default function Signup() {
               <Receipt size={24} />
             </div>
             <span className="auth-logo-text">
-              Split<span>Wiser</span>
+              Split<span>Easier</span>
             </span>
           </Link>
           <p className="auth-subtitle">Create your account</p>

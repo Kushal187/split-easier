@@ -238,7 +238,7 @@ export default function HouseholdPage() {
   }
 
   async function deleteBill(billId) {
-    if (!confirm('Delete this bill? This will only remove it in SplitWiser.')) return;
+    if (!confirm('Delete this bill? This will only remove it in SplitEasier.')) return;
     setError('');
     setDeletingBillId(billId);
     try {
@@ -287,7 +287,7 @@ export default function HouseholdPage() {
                   <Receipt size={12} />
                 </div>
                 <span className="header-logo-text" style={{ fontSize: '0.875rem' }}>
-                  Split<span>Wiser</span>
+                  Split<span>Easier</span>
                 </span>
               </Link>
             </div>

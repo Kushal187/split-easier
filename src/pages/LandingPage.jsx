@@ -42,7 +42,7 @@ export default function LandingPage() {
           <div className="landing-logo-icon">
             <Receipt size={16} />
           </div>
-          <span className="landing-logo-text">Split<span>Wiser</span></span>
+          <span className="landing-logo-text">Split<span>Easier</span></span>
         </Link>
         <div className="landing-nav-links">
           <ThemeToggle />
@@ -61,7 +61,7 @@ export default function LandingPage() {
             Split bills fairly, <span className="landing-hero-highlight">item by item</span>
           </h1>
           <p className="landing-hero-desc">
-            SplitWiser lets you assign each item on a shared bill to the exact people who consumed it.
+            SplitEasier lets you assign each item on a shared bill to the exact people who consumed it.
             No more averages. No more arguments.
           </p>
           <div className="landing-hero-buttons">
@@ -183,7 +183,7 @@ export default function LandingPage() {
           <div className="landing-logo-icon landing-logo-icon--sm">
             <Receipt size={12} />
           </div>
-          <span>SplitWiser © {new Date().getFullYear()}</span>
+          <span>SplitEasier © {new Date().getFullYear()}</span>
         </div>
       </footer>
     </div>

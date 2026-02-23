@@ -14,8 +14,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
-        name: 'Split Wiser',
-        short_name: 'SplitWiser',
+        name: 'SplitEasier',
+        short_name: 'SplitEasier',
         description: 'Simple bill-splitting app for 4 people.',
         theme_color: '#0d9488',
         background_color: '#f0f4f8',

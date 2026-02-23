@@ -51,7 +51,7 @@ export default function Login() {
               <Receipt size={24} />
             </div>
             <span className="auth-logo-text">
-              Split<span>Wiser</span>
+              Split<span>Easier</span>
             </span>
           </Link>
           <p className="auth-subtitle">Welcome back</p>

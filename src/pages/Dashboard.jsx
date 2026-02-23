@@ -112,7 +112,7 @@ export default function Dashboard() {
                 <Receipt size={16} />
               </div>
               <span className="header-logo-text">
-                Split<span>Wiser</span>
+                Split<span>Easier</span>
               </span>
             </Link>
             <div className="header-user">

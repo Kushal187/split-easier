@@ -1,1 +1,1 @@
-# split-easier
+# SplitEasier

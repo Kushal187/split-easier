@@ -3,8 +3,8 @@ import { api, setAuthToken, getAuthToken } from '../api/client.js';
 
 const AuthContext = createContext(null);
 
-const STORAGE_TOKEN = 'splitWiserToken';
-const STORAGE_USER = 'splitWiserUser';
+const STORAGE_TOKEN = 'splitEasierToken';
+const STORAGE_USER = 'splitEasierUser';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
