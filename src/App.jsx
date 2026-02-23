@@ -5,6 +5,7 @@ import Signup from './pages/Signup.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import HouseholdPage from './pages/HouseholdPage.jsx';
 import LandingPage from './pages/LandingPage.jsx';
+import SplitwiseCallback from './pages/SplitwiseCallback.jsx';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -71,6 +72,7 @@ export default function App() {
           </PublicRoute>
         }
       />
+      <Route path="/oauth/splitwise/callback" element={<SplitwiseCallback />} />
       <Route
         path="/dashboard"
         element={

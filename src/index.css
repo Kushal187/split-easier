@@ -121,6 +121,22 @@
   color: #065f46;
 }
 
+[data-theme="light"] .btn-remove-member {
+  color: #64748b;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+[data-theme="light"] .btn-remove-member:hover:not(:disabled) {
+  color: #be123c;
+  background: rgba(190, 18, 60, 0.1);
+  border-color: rgba(190, 18, 60, 0.3);
+}
+
+[data-theme="light"] .btn-remove-member:disabled {
+  opacity: 0.5;
+}
+
 /* Bill summary: member name and amounts visible in both themes */
 .bill-member-name {
   font-weight: 500;
@@ -534,6 +550,39 @@ a:hover {
 .btn-gradient:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.btn-splitwise {
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, opacity 0.2s;
+}
+
+.btn-splitwise:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--glass-border-light);
+}
+
+.btn-splitwise:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-divider {
+  margin: 14px 0 4px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 /* Password toggle */

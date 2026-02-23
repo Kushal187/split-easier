@@ -13,6 +13,8 @@ import {
   UserPlus,
   ShoppingCart,
   Check,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { ThemeToggle } from '../components/ThemeToggle.jsx';
@@ -68,7 +70,7 @@ function buildBreakdown(items) {
   return breakdown;
 }
 
-function SavedBillCard({ bill }) {
+function SavedBillCard({ bill, canEdit, onEdit, onDelete, deleting }) {
   const [expandedUserIds, setExpandedUserIds] = useState(() => new Set());
   const names = bill.memberNames || {};
   const totalKeys = bill.totals ? Object.keys(bill.totals) : [];
@@ -94,12 +96,37 @@ function SavedBillCard({ bill }) {
           <div className="bill-card-title">{bill.billName}</div>
           <div className="bill-card-date">{formatDate(bill.createdAt)}</div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div className="bill-card-total-label">Total</div>
-          <div className="bill-card-total-value">{formatMoney(bill.totalAmount)}</div>
+        <div style={{ textAlign: 'right', display: 'flex', gap: 12, alignItems: 'center' }}>
+          <div>
+            <div className="bill-card-total-label">Total</div>
+            <div className="bill-card-total-value">{formatMoney(bill.totalAmount)}</div>
+          </div>
+          {canEdit && (
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button type="button" className="btn-remove-member" onClick={onEdit} title="Edit bill">
+                <Pencil size={14} />
+              </button>
+              <button
+                type="button"
+                className="btn-remove-member"
+                onClick={onDelete}
+                disabled={deleting}
+                title="Delete bill"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
       <div className="bill-card-body">
+        {bill?.splitwiseSync?.status && (
+          <div className="bill-sync-note" style={{ marginBottom: 12, color: 'var(--text-muted-2)', fontSize: '0.8rem' }}>
+            Splitwise sync: <strong style={{ color: 'var(--text)' }}>{bill.splitwiseSync.status}</strong>
+            {bill?.splitwiseSync?.expenseId ? ` (expense #${bill.splitwiseSync.expenseId})` : ''}
+            {bill?.splitwiseSync?.error ? ` - ${bill.splitwiseSync.error}` : ''}
+          </div>
+        )}
         {totalKeys.map((userId) => {
           const total = bill.totals[userId] ?? 0;
           const itemsForPerson = breakdown[userId] || [];
@@ -155,6 +182,8 @@ export default function HouseholdPage() {
   const [memberEmail, setMemberEmail] = useState('');
   const [addingMember, setAddingMember] = useState(false);
   const [showNewBill, setShowNewBill] = useState(false);
+  const [editingBillId, setEditingBillId] = useState(null);
+  const [deletingBillId, setDeletingBillId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -201,6 +230,27 @@ export default function HouseholdPage() {
       .delete(`/households/${id}/members/${memberUserId}`)
       .then(setHousehold)
       .catch((err) => setError(err.data?.error || err.message));
+  }
+
+  async function refreshBills() {
+    const data = await api.get(`/households/${id}/bills`).catch(() => []);
+    setBills(Array.isArray(data) ? data : []);
+  }
+
+  async function deleteBill(billId) {
+    if (!confirm('Delete this bill? This will only remove it in SplitWiser.')) return;
+    setError('');
+    setDeletingBillId(billId);
+    try {
+      const resp = await api.delete(`/households/${id}/bills/${billId}`);
+      if (resp?.warning) setError(resp.warning);
+      await refreshBills();
+      if (editingBillId === billId) setEditingBillId(null);
+    } catch (err) {
+      setError(err.data?.error || err.message);
+    } finally {
+      setDeletingBillId(null);
+    }
   }
 
   if (loading) {
@@ -264,6 +314,11 @@ export default function HouseholdPage() {
                 </>
               )}
             </div>
+            {household.splitwiseGroupId && (
+              <div className="household-card-meta" style={{ marginTop: 8 }}>
+                <span>Linked Splitwise group: {household.splitwiseGroupName || household.splitwiseGroupId}</span>
+              </div>
+            )}
           </motion.div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
@@ -361,7 +416,7 @@ export default function HouseholdPage() {
                       members={members}
                       onSaved={() => {
                         setShowNewBill(false);
-                        api.get(`/households/${id}/bills`).then((b) => setBills(Array.isArray(b) ? b : []));
+                        refreshBills();
                       }}
                       onCancel={() => setShowNewBill(false)}
                     />
@@ -369,7 +424,32 @@ export default function HouseholdPage() {
                 </AnimatePresence>
 
                 {bills.map((bill) => (
-                  <SavedBillCard key={bill.id} bill={bill} />
+                  editingBillId === bill.id ? (
+                    <NewBillForm
+                      key={`edit-${bill.id}`}
+                      householdId={id}
+                      members={members}
+                      initialBill={bill}
+                      mode="edit"
+                      onSaved={() => {
+                        setEditingBillId(null);
+                        refreshBills();
+                      }}
+                      onCancel={() => setEditingBillId(null)}
+                    />
+                  ) : (
+                    <SavedBillCard
+                      key={bill.id}
+                      bill={bill}
+                      canEdit={bill.createdBy === user?.id}
+                      deleting={deletingBillId === bill.id}
+                      onEdit={() => {
+                        setShowNewBill(false);
+                        setEditingBillId(bill.id);
+                      }}
+                      onDelete={() => deleteBill(bill.id)}
+                    />
+                  )
                 ))}
 
                 {bills.length === 0 && !showNewBill && (
@@ -390,10 +470,17 @@ export default function HouseholdPage() {
   );
 }
 
-function NewBillForm({ householdId, members, onSaved, onCancel }) {
-  const [billName, setBillName] = useState('');
+function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = null, mode = 'create' }) {
+  const [billName, setBillName] = useState(initialBill?.billName || '');
   const [itemForm, setItemForm] = useState({ name: '', amount: '', splitBetween: [] });
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState(
+    (initialBill?.items || []).map((i) => ({
+      id: i.id || crypto.randomUUID(),
+      name: i.name,
+      amount: Number(i.amount),
+      splitBetween: (i.splitBetween || []).map((id) => (typeof id === 'string' ? id : id.toString()))
+    }))
+  );
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -460,10 +547,15 @@ function NewBillForm({ householdId, members, onSaved, onCancel }) {
     setError('');
     setSaving(true);
     try {
-      await api.post(`/households/${householdId}/bills`, {
+      const payload = {
         billName: billName.trim(),
         items: items.map((i) => ({ id: i.id, name: i.name, amount: i.amount, splitBetween: i.splitBetween }))
-      });
+      };
+      if (mode === 'edit' && initialBill?.id) {
+        await api.patch(`/households/${householdId}/bills/${initialBill.id}`, payload);
+      } else {
+        await api.post(`/households/${householdId}/bills`, payload);
+      }
       onSaved();
     } catch (err) {
       setError(err.data?.error || err.message);
@@ -487,7 +579,9 @@ function NewBillForm({ householdId, members, onSaved, onCancel }) {
           <div className="new-bill-card-title-icon">
             <Receipt size={14} />
           </div>
-          <span className="new-bill-card-title-text" style={{ fontWeight: 600, color: 'var(--text)' }}>New Bill</span>
+          <span className="new-bill-card-title-text" style={{ fontWeight: 600, color: 'var(--text)' }}>
+            {mode === 'edit' ? 'Edit Bill' : 'New Bill'}
+          </span>
         </div>
         <button type="button" className="new-bill-card-close" onClick={onCancel}>
           <X size={16} />
@@ -616,7 +710,7 @@ function NewBillForm({ householdId, members, onSaved, onCancel }) {
                 onClick={finalize}
                 disabled={saving}
               >
-                {saving ? <span className="spinner" /> : `Save bill${items.length > 0 ? ` (${formatMoney(draftTotal)})` : ''}`}
+                {saving ? <span className="spinner" /> : `${mode === 'edit' ? 'Save changes' : 'Save bill'}${items.length > 0 ? ` (${formatMoney(draftTotal)})` : ''}`}
               </button>
             </div>
           </>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Receipt, Plus, Users, ChevronRight, LogOut, Home, X } from 'lucide-react';
+import { Receipt, Plus, Users, ChevronRight, LogOut, Home, X, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { ThemeToggle } from '../components/ThemeToggle.jsx';
 import { api } from '../api/client.js';
@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +69,29 @@ export default function Dashboard() {
       setError(err.data?.error || err.message);
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function importSplitwiseGroups() {
+    setError('');
+    setImporting(true);
+    try {
+      const result = await api.post('/households/import-splitwise', {});
+      const imported = Array.isArray(result?.households) ? result.households : [];
+      if (imported.length > 0) {
+        setHouseholds((prev) => {
+          const byId = new Map(prev.map((h) => [h.id, h]));
+          imported.forEach((h) => byId.set(h.id, h));
+          return [...byId.values()].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        });
+      } else {
+        const refreshed = await api.get('/households');
+        setHouseholds(Array.isArray(refreshed) ? refreshed : []);
+      }
+    } catch (err) {
+      setError(err.data?.error || err.message);
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -119,14 +143,25 @@ export default function Dashboard() {
 
           <div className="section-header">
             <h2 className="section-label">Households</h2>
-            <button
-              type="button"
-              className="btn-sm-primary"
-              onClick={() => setShowCreate(true)}
-            >
-              <Plus size={14} />
-              New household
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                className="btn-sm-primary"
+                onClick={importSplitwiseGroups}
+                disabled={importing}
+              >
+                <RefreshCw size={14} />
+                {importing ? 'Importing…' : 'Import Splitwise'}
+              </button>
+              <button
+                type="button"
+                className="btn-sm-primary"
+                onClick={() => setShowCreate(true)}
+              >
+                <Plus size={14} />
+                New household
+              </button>
+            </div>
           </div>
 
           <AnimatePresence>
