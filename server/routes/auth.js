@@ -35,9 +35,14 @@ function ensureSplitwiseEnv() {
   }
 }
 
-function buildFrontendCallbackUrl(payload = {}) {
+function buildFrontendCallbackUrl(req, payload = {}) {
   const hash = new URLSearchParams(payload).toString();
-  return `${FRONTEND_URL.replace(/\/$/, '')}/oauth/splitwise/callback#${hash}`;
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const forwardedHost = req.headers['x-forwarded-host'];
+  const requestHost = forwardedHost || req.headers.host;
+  const requestProto = forwardedProto || (req.protocol === 'https' ? 'https' : 'http');
+  const base = requestHost ? `${requestProto}://${requestHost}` : FRONTEND_URL;
+  return `${String(base).replace(/\/$/, '')}/oauth/splitwise/callback#${hash}`;
 }
 
 router.post('/register', async (req, res, next) => {
@@ -107,14 +112,14 @@ router.get('/splitwise/callback', async (req, res, next) => {
     ensureSplitwiseEnv();
     const { code, state } = req.query;
     if (!code || !state) {
-      return res.redirect(buildFrontendCallbackUrl({ error: 'Missing authorization code or state' }));
+      return res.redirect(buildFrontendCallbackUrl(req, { error: 'Missing authorization code or state' }));
     }
 
     let statePayload = null;
     try {
       statePayload = jwt.verify(String(state), SPLITWISE_STATE_SECRET);
     } catch (_) {
-      return res.redirect(buildFrontendCallbackUrl({ error: 'Invalid or expired OAuth state' }));
+      return res.redirect(buildFrontendCallbackUrl(req, { error: 'Invalid or expired OAuth state' }));
     }
     const redirectUriFromState = statePayload?.ru || SPLITWISE_REDIRECT_URI;
 
@@ -133,7 +138,7 @@ router.get('/splitwise/callback', async (req, res, next) => {
     const tokenData = await tokenRes.json().catch(() => ({}));
     if (!tokenRes.ok || !tokenData?.access_token) {
       const errorMessage = tokenData?.error_description || tokenData?.error || 'Failed to exchange Splitwise OAuth code';
-      return res.redirect(buildFrontendCallbackUrl({ error: String(errorMessage) }));
+      return res.redirect(buildFrontendCallbackUrl(req, { error: String(errorMessage) }));
     }
 
     const meRes = await fetch(`${SPLITWISE_API_BASE}/get_current_user`, {
@@ -144,7 +149,7 @@ router.get('/splitwise/callback', async (req, res, next) => {
 
     if (!meRes.ok || !splitwiseUser?.id) {
       const errorMessage = meData?.error || meData?.errors?.[0] || 'Unable to fetch Splitwise profile';
-      return res.redirect(buildFrontendCallbackUrl({ error: String(errorMessage) }));
+      return res.redirect(buildFrontendCallbackUrl(req, { error: String(errorMessage) }));
     }
 
     const splitwiseId = String(splitwiseUser.id);
@@ -181,7 +186,7 @@ router.get('/splitwise/callback', async (req, res, next) => {
     const appUser = { id: user._id.toString(), email: user.email, name: user.name };
 
     return res.redirect(
-      buildFrontendCallbackUrl({
+      buildFrontendCallbackUrl(req, {
         token: appToken,
         user: JSON.stringify(appUser)
       })
