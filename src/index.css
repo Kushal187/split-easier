@@ -121,6 +121,22 @@
   color: #065f46;
 }
 
+[data-theme="light"] .btn-remove-member {
+  color: #64748b;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+[data-theme="light"] .btn-remove-member:hover:not(:disabled) {
+  color: #be123c;
+  background: rgba(190, 18, 60, 0.1);
+  border-color: rgba(190, 18, 60, 0.3);
+}
+
+[data-theme="light"] .btn-remove-member:disabled {
+  opacity: 0.5;
+}
+
 /* Bill summary: member name and amounts visible in both themes */
 .bill-member-name {
   font-weight: 500;
