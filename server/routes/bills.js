@@ -3,6 +3,7 @@ import Bill from '../models/Bill.js';
 import Household from '../models/Household.js';
 import User from '../models/User.js';
 import { splitwiseFetch, withSplitwiseAccessToken } from '../lib/splitwise.js';
+import { OCR_MAX_RAW_TEXT_CHARS, extractReceiptItemsFromOcrText } from '../lib/ocr.js';
 
 const router = Router({ mergeParams: true });
 
@@ -298,6 +299,38 @@ async function updateBillOnSplitwise({ bill, household, actorUserId }) {
 }
 
 router.use(ensureMember);
+
+router.post('/ocr', async (req, res, next) => {
+  try {
+    const { ocrText, fileName } = req.body || {};
+    const text = typeof ocrText === 'string' ? ocrText.trim() : '';
+    if (!text) {
+      return res.status(400).json({
+        error: 'Missing OCR text. Extract text on the client and send it as ocrText.'
+      });
+    }
+    if (text.length > OCR_MAX_RAW_TEXT_CHARS) {
+      return res.status(413).json({
+        error: `OCR text is too large. Max length is ${OCR_MAX_RAW_TEXT_CHARS} characters.`
+      });
+    }
+
+    const extracted = await extractReceiptItemsFromOcrText({
+      text,
+      fileName: typeof fileName === 'string' ? fileName : ''
+    });
+
+    if (!extracted?.items?.length) {
+      return res.status(422).json({
+        error: 'AI returned no line items for this receipt. Try a clearer image or adjust the prompt.'
+      });
+    }
+
+    res.json(extracted);
+  } catch (e) {
+    next(e);
+  }
+});
 
 router.get('/', async (req, res, next) => {
   try {

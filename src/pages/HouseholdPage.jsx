@@ -6,6 +6,7 @@ import {
   Receipt,
   Users,
   Plus,
+  Upload,
   X,
   ChevronDown,
   ChevronUp,
@@ -59,6 +60,75 @@ function createClientId() {
     return globalThis.crypto.randomUUID();
   }
   return `item-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+const TESSERACT_CDN_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+let tesseractLoaderPromise = null;
+
+function loadTesseractBrowser() {
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error('OCR is only available in browser environments.'));
+  }
+  if (window.Tesseract?.recognize) {
+    return Promise.resolve(window.Tesseract);
+  }
+  if (!tesseractLoaderPromise) {
+    tesseractLoaderPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[src="${TESSERACT_CDN_URL}"]`);
+      if (existing) {
+        existing.addEventListener('load', () => resolve(window.Tesseract), { once: true });
+        existing.addEventListener('error', () => reject(new Error('Failed to load OCR engine.')), { once: true });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = TESSERACT_CDN_URL;
+      script.async = true;
+      script.onload = () => {
+        if (window.Tesseract?.recognize) resolve(window.Tesseract);
+        else reject(new Error('OCR engine loaded but unavailable.'));
+      };
+      script.onerror = () => reject(new Error('Failed to load OCR engine.'));
+      document.head.appendChild(script);
+    }).catch((err) => {
+      tesseractLoaderPromise = null;
+      throw err;
+    });
+  }
+  return tesseractLoaderPromise;
+}
+
+function formatOcrStatusMessage(msg) {
+  const rawStatus = String(msg?.status || 'processing')
+    .replace(/_/g, ' ')
+    .trim();
+  const status = rawStatus ? rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1) : 'Processing';
+  const pct = typeof msg?.progress === 'number' ? Math.max(0, Math.min(100, Math.round(msg.progress * 100))) : null;
+  return pct === null ? `${status}...` : `${status} ${pct}%`;
+}
+
+async function extractTextWithBrowserOcr(file, onProgress) {
+  const tesseract = await loadTesseractBrowser();
+  const result = await tesseract.recognize(file, 'eng', {
+    logger: (msg) => {
+      if (typeof onProgress === 'function') onProgress(msg);
+    }
+  });
+  return String(result?.data?.text || '');
+}
+
+function normalizeAmount(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return 0;
+  return Math.round(amount * 100) / 100;
+}
+
+function isSupportedReceiptImageFile(file) {
+  if (!file) return false;
+  const mime = String(file.type || '').toLowerCase().trim();
+  if (mime.startsWith('image/')) return true;
+  const name = String(file.name || '').toLowerCase();
+  return /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(name);
 }
 
 /** Per-person breakdown: what each person owes and for which items (item name + their share). */
@@ -534,6 +604,8 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
   );
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrMessage, setOcrMessage] = useState('');
 
   function revealBillNameInput(behavior = 'smooth') {
     const target = billNameInputRef.current || cardRef.current;
@@ -587,7 +659,7 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
   }
 
   function addItem() {
-    const amount = Number(itemForm.amount);
+    const amount = normalizeAmount(itemForm.amount);
     if (!itemForm.name.trim()) {
       setError('Item name is required.');
       return;
@@ -613,15 +685,101 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
     setError('');
   }
 
+  function updateItem(itemId, patch) {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== itemId) return item;
+        return { ...item, ...patch };
+      })
+    );
+  }
+
+  function toggleItemMember(itemId, userId) {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== itemId) return item;
+        const inList = item.splitBetween.includes(userId);
+        const splitBetween = inList
+          ? item.splitBetween.filter((id) => id !== userId)
+          : [...item.splitBetween, userId];
+        return { ...item, splitBetween };
+      })
+    );
+  }
+
   function removeItem(itemId) {
     setItems((prev) => prev.filter((i) => i.id !== itemId));
+  }
+
+  async function importFromReceiptFile(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || ocrLoading) return;
+
+    if (!isSupportedReceiptImageFile(file)) {
+      setError('Please upload an image receipt (JPG, PNG, WEBP, HEIC).');
+      return;
+    }
+
+    const maxSize = 6 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setError('Image is too large. Max size is 6MB.');
+      return;
+    }
+
+    setOcrMessage('');
+    setError('');
+    setOcrLoading(true);
+
+    try {
+      setOcrMessage('Loading OCR engine...');
+      const ocrText = await extractTextWithBrowserOcr(file, (msg) => {
+        setOcrMessage(formatOcrStatusMessage(msg));
+      });
+      if (!ocrText.trim()) {
+        setError('Could not read any text from this image. Try a clearer receipt photo.');
+        return;
+      }
+
+      const extracted = await api.post(`/households/${householdId}/bills/ocr`, {
+        ocrText,
+        fileName: file.name
+      });
+
+      const splitBetween = members.map((m) => m.id);
+      const parsedItems = (extracted?.items || [])
+        .map((item) => ({
+          id: createClientId(),
+          name: String(item?.name || '').trim() || 'Item',
+          amount: normalizeAmount(item?.amount),
+          splitBetween: [...splitBetween]
+        }))
+        .filter((item) => item.name && Number.isFinite(item.amount) && item.amount > 0);
+
+      if (!parsedItems.length) {
+        setError('No receipt items were detected. Try a clearer image.');
+        return;
+      }
+
+      setItems((prev) => [...prev, ...parsedItems]);
+      if (!billName.trim() && extracted?.billName) {
+        setBillName(String(extracted.billName).trim());
+      }
+      setOcrMessage(`Imported ${parsedItems.length} item${parsedItems.length === 1 ? '' : 's'} from ${file.name}.`);
+    } catch (err) {
+      setError(err.data?.error || err.message || 'Failed to scan receipt.');
+    } finally {
+      setOcrLoading(false);
+    }
   }
 
   function buildTotals() {
     const totals = {};
     members.forEach((m) => (totals[m.id] = 0));
     items.forEach((item) => {
-      const share = item.amount / item.splitBetween.length;
+      const amount = normalizeAmount(item.amount);
+      if (amount <= 0 || item.splitBetween.length === 0) return;
+      const share = amount / item.splitBetween.length;
       item.splitBetween.forEach((userId) => {
         totals[userId] = (totals[userId] ?? 0) + share;
       });
@@ -638,12 +796,37 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
       setError('Add at least one item.');
       return;
     }
+
+    const allowedMemberIds = new Set(members.map((m) => m.id));
+    const normalizedItems = items.map((item) => ({
+      id: item.id || createClientId(),
+      name: item.name?.trim() || '',
+      amount: normalizeAmount(item.amount),
+      splitBetween: [...new Set((item.splitBetween || []).filter((id) => allowedMemberIds.has(id)))]
+    }));
+
+    const invalidNameIndex = normalizedItems.findIndex((item) => !item.name);
+    if (invalidNameIndex >= 0) {
+      setError(`Item ${invalidNameIndex + 1} needs a name.`);
+      return;
+    }
+    const invalidAmountIndex = normalizedItems.findIndex((item) => item.amount <= 0);
+    if (invalidAmountIndex >= 0) {
+      setError(`Item ${invalidAmountIndex + 1} has an invalid amount.`);
+      return;
+    }
+    const missingPeopleIndex = normalizedItems.findIndex((item) => item.splitBetween.length === 0);
+    if (missingPeopleIndex >= 0) {
+      setError(`Pick at least one person for item ${missingPeopleIndex + 1}.`);
+      return;
+    }
+
     setError('');
     setSaving(true);
     try {
       const payload = {
         billName: billName.trim(),
-        items: items.map((i) => ({ id: i.id, name: i.name, amount: i.amount, splitBetween: i.splitBetween }))
+        items: normalizedItems
       };
       if (mode === 'edit' && initialBill?.id) {
         await api.patch(`/households/${householdId}/bills/${initialBill.id}`, payload);
@@ -659,7 +842,7 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
   }
 
   const draftTotals = buildTotals();
-  const draftTotal = items.reduce((sum, i) => sum + i.amount, 0);
+  const draftTotal = items.reduce((sum, i) => sum + normalizeAmount(i.amount), 0);
 
   return (
     <motion.div
@@ -698,6 +881,24 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
             autoFocus
           />
         </div>
+
+        {mode !== 'edit' && (
+          <div className="receipt-ocr-block">
+            <label className="label-glass">Auto-fill from receipt</label>
+            <label className={`btn-add-item receipt-upload-btn ${ocrLoading ? 'receipt-upload-btn--disabled' : ''}`}>
+              <Upload size={16} />
+              {ocrLoading ? 'Scanning receipt...' : 'Upload receipt image'}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
+                onChange={importFromReceiptFile}
+                disabled={ocrLoading}
+              />
+            </label>
+            <p className="receipt-ocr-help">JPG, PNG, WEBP, or HEIC up to 6MB. OCR runs on-device.</p>
+            {ocrMessage && <p className="receipt-ocr-message">{ocrMessage}</p>}
+          </div>
+        )}
 
         <div className="new-bill-divider" />
 
@@ -761,7 +962,7 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
             type="button"
             className="btn-add-item"
             onClick={addItem}
-            disabled={!itemForm.name.trim() || !itemForm.amount || itemForm.splitBetween.length === 0}
+            disabled={!itemForm.name.trim() || normalizeAmount(itemForm.amount) <= 0 || itemForm.splitBetween.length === 0}
           >
             <Plus size={16} />
             Add item to bill
@@ -780,13 +981,49 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
               <ul className="added-items-list">
                 {items.map((item) => (
                   <li key={item.id} className="added-item-row">
-                    <div>
-                      <div className="added-item-name">{item.name}</div>
+                    <div className="added-item-main">
+                      <div className="added-item-fields">
+                        <input
+                          type="text"
+                          value={item.name}
+                          onChange={(e) => updateItem(item.id, { name: e.target.value })}
+                          className="input-glass added-item-input"
+                          placeholder="Item name"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.amount}
+                          onChange={(e) => updateItem(item.id, { amount: e.target.value })}
+                          className="input-glass added-item-input"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className="new-bill-chips added-item-chips">
+                        {members.map((member) => {
+                          const selected = item.splitBetween.includes(member.id);
+                          return (
+                            <button
+                              type="button"
+                              key={`${item.id}-${member.id}`}
+                              className={`chip-member chip-member--compact ${selected ? 'selected' : ''}`}
+                              onClick={() => toggleItemMember(item.id, member.id)}
+                            >
+                              <span className={`avatar-gradient ${getAvatarColor(member.id)}`} style={{ width: 16, height: 16, fontSize: '0.55rem' }}>
+                                {getInitial(member.name)}
+                              </span>
+                              {member.name}
+                            </button>
+                          );
+                        })}
+                      </div>
                       <div className="added-item-meta">
-                        Split {item.splitBetween.length > 1 ? `${item.splitBetween.length} ways` : 'only you'}
+                        {item.splitBetween.length > 0
+                          ? `Split ${item.splitBetween.length > 1 ? `${item.splitBetween.length} ways` : 'with 1 person'}`
+                          : 'Pick at least one person'}
                       </div>
                     </div>
-                    <span className="added-item-amount">{formatMoney(item.amount)}</span>
                     <button type="button" className="btn-text-danger" onClick={() => removeItem(item.id)}>
                       Remove
                     </button>
