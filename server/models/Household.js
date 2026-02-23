@@ -6,7 +6,9 @@ const householdSchema = new mongoose.Schema(
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     memberIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     splitwiseGroupId: { type: String, default: null, index: true },
-    splitwiseGroupName: { type: String, default: null }
+    splitwiseGroupName: { type: String, default: null },
+    splitwiseLastPulledAt: { type: Date, default: null },
+    splitwiseLastCursor: { type: String, default: null }
   },
   { timestamps: true }
 );

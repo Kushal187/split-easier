@@ -15,6 +15,7 @@ import {
   Check,
   Pencil,
   Trash2,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { ThemeToggle } from '../components/ThemeToggle.jsx';
@@ -184,6 +185,8 @@ export default function HouseholdPage() {
   const [showNewBill, setShowNewBill] = useState(false);
   const [editingBillId, setEditingBillId] = useState(null);
   const [deletingBillId, setDeletingBillId] = useState(null);
+  const [syncingSplitwise, setSyncingSplitwise] = useState(false);
+  const [syncSummary, setSyncSummary] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -250,6 +253,29 @@ export default function HouseholdPage() {
       setError(err.data?.error || err.message);
     } finally {
       setDeletingBillId(null);
+    }
+  }
+
+  async function syncSplitwiseExpenses() {
+    if (!household?.splitwiseGroupId || syncingSplitwise) return;
+    setError('');
+    setSyncSummary('');
+    setSyncingSplitwise(true);
+    try {
+      const resp = await api.post(`/households/${id}/sync-splitwise`, {});
+      await refreshBills();
+      const summary = resp?.summary || {};
+      const parts = [
+        `${summary.created ?? 0} created`,
+        `${summary.updated ?? 0} updated`,
+        `${summary.deleted ?? 0} deleted`,
+        `${summary.conflicts ?? 0} conflicts`,
+      ];
+      setSyncSummary(`Splitwise sync complete: ${parts.join(', ')}.`);
+    } catch (err) {
+      setError(err.data?.error || err.message);
+    } finally {
+      setSyncingSplitwise(false);
     }
   }
 
@@ -394,18 +420,34 @@ export default function HouseholdPage() {
             <section>
               <div className="section-header">
                 <h2 className="section-label">Bills</h2>
-                {!showNewBill && (
-                  <button
-                    type="button"
-                    className="btn-sm-primary"
-                    onClick={() => setShowNewBill(true)}
-                    style={{ background: 'var(--gradient-start)', border: 'none', color: 'white', boxShadow: '0 4px 12px var(--gradient-shadow)' }}
-                  >
-                    <Plus size={14} />
-                    New bill
-                  </button>
-                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {household.splitwiseGroupId && (
+                    <button
+                      type="button"
+                      className="btn-sm-primary"
+                      onClick={syncSplitwiseExpenses}
+                      disabled={syncingSplitwise}
+                    >
+                      <RefreshCw size={14} />
+                      {syncingSplitwise ? 'Syncing…' : 'Sync Splitwise'}
+                    </button>
+                  )}
+                  {!showNewBill && (
+                    <button
+                      type="button"
+                      className="btn-sm-primary"
+                      onClick={() => setShowNewBill(true)}
+                      style={{ background: 'var(--gradient-start)', border: 'none', color: 'white', boxShadow: '0 4px 12px var(--gradient-shadow)' }}
+                    >
+                      <Plus size={14} />
+                      New bill
+                    </button>
+                  )}
+                </div>
               </div>
+              {syncSummary && (
+                <p className="welcome-sub" style={{ marginTop: 8, marginBottom: 0, fontSize: '0.8rem' }}>{syncSummary}</p>
+              )}
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <AnimatePresence>
