@@ -45,6 +45,50 @@ function buildFrontendCallbackUrl(req, payload = {}) {
   return `${String(base).replace(/\/$/, '')}/oauth/splitwise/callback#${hash}`;
 }
 
+function renderOauthBridgeHtml({ token, user, error }) {
+  if (error) {
+    const safeError = String(error).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Splitwise Sign-in</title>
+  </head>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px;">
+    <h2>Splitwise sign-in failed</h2>
+    <p>${safeError}</p>
+    <p><a href="/login">Back to login</a></p>
+  </body>
+</html>`;
+  }
+
+  const tokenLiteral = JSON.stringify(token);
+  const userLiteral = JSON.stringify(user);
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Signing in...</title>
+  </head>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px;">
+    <p>Completing sign-in...</p>
+    <script>
+      try {
+        const token = ${tokenLiteral};
+        const user = ${userLiteral};
+        localStorage.setItem('splitWiserToken', token);
+        localStorage.setItem('splitWiserUser', JSON.stringify(user));
+        location.replace('/dashboard');
+      } catch (e) {
+        location.replace('/login');
+      }
+    </script>
+  </body>
+</html>`;
+}
+
 router.post('/register', async (req, res, next) => {
   try {
     const { email, password, name } = req.body;
@@ -112,14 +156,14 @@ router.get('/splitwise/callback', async (req, res, next) => {
     ensureSplitwiseEnv();
     const { code, state } = req.query;
     if (!code || !state) {
-      return res.redirect(buildFrontendCallbackUrl(req, { error: 'Missing authorization code or state' }));
+      return res.status(400).send(renderOauthBridgeHtml({ error: 'Missing authorization code or state' }));
     }
 
     let statePayload = null;
     try {
       statePayload = jwt.verify(String(state), SPLITWISE_STATE_SECRET);
     } catch (_) {
-      return res.redirect(buildFrontendCallbackUrl(req, { error: 'Invalid or expired OAuth state' }));
+      return res.status(400).send(renderOauthBridgeHtml({ error: 'Invalid or expired OAuth state' }));
     }
     const redirectUriFromState = statePayload?.ru || SPLITWISE_REDIRECT_URI;
 
@@ -138,7 +182,7 @@ router.get('/splitwise/callback', async (req, res, next) => {
     const tokenData = await tokenRes.json().catch(() => ({}));
     if (!tokenRes.ok || !tokenData?.access_token) {
       const errorMessage = tokenData?.error_description || tokenData?.error || 'Failed to exchange Splitwise OAuth code';
-      return res.redirect(buildFrontendCallbackUrl(req, { error: String(errorMessage) }));
+      return res.status(400).send(renderOauthBridgeHtml({ error: String(errorMessage) }));
     }
 
     const meRes = await fetch(`${SPLITWISE_API_BASE}/get_current_user`, {
@@ -149,7 +193,7 @@ router.get('/splitwise/callback', async (req, res, next) => {
 
     if (!meRes.ok || !splitwiseUser?.id) {
       const errorMessage = meData?.error || meData?.errors?.[0] || 'Unable to fetch Splitwise profile';
-      return res.redirect(buildFrontendCallbackUrl(req, { error: String(errorMessage) }));
+      return res.status(400).send(renderOauthBridgeHtml({ error: String(errorMessage) }));
     }
 
     const splitwiseId = String(splitwiseUser.id);
@@ -185,12 +229,7 @@ router.get('/splitwise/callback', async (req, res, next) => {
     const appToken = issueToken(user._id);
     const appUser = { id: user._id.toString(), email: user.email, name: user.name };
 
-    return res.redirect(
-      buildFrontendCallbackUrl(req, {
-        token: appToken,
-        user: JSON.stringify(appUser)
-      })
-    );
+    return res.status(200).send(renderOauthBridgeHtml({ token: appToken, user: appUser }));
   } catch (e) {
     next(e);
   }
