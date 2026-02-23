@@ -73,6 +73,17 @@ function firstExpenseFromSplitwiseResult(result) {
   return null;
 }
 
+function billSortTimestamp(billDoc) {
+  const remoteUpdated = parseSplitwiseDate(billDoc?.splitwiseSync?.expenseUpdatedAt);
+  if (remoteUpdated) return remoteUpdated.getTime();
+
+  const updatedAt = parseSplitwiseDate(billDoc?.updatedAt);
+  if (updatedAt) return updatedAt.getTime();
+
+  const createdAt = parseSplitwiseDate(billDoc?.createdAt);
+  return createdAt ? createdAt.getTime() : 0;
+}
+
 function billResponse(billDoc, nameMap = {}) {
   return {
     id: billDoc._id.toString(),
@@ -290,9 +301,12 @@ router.use(ensureMember);
 
 router.get('/', async (req, res, next) => {
   try {
-    const bills = await Bill.find({ householdId: req.params.householdId })
-      .sort({ createdAt: -1 })
-      .lean();
+    const bills = await Bill.find({ householdId: req.params.householdId }).lean();
+    bills.sort((a, b) => {
+      const tsDiff = billSortTimestamp(b) - billSortTimestamp(a);
+      if (tsDiff !== 0) return tsDiff;
+      return (parseSplitwiseDate(b?.createdAt)?.getTime() || 0) - (parseSplitwiseDate(a?.createdAt)?.getTime() || 0);
+    });
     const memberIds = [...new Set(bills.flatMap((b) => Object.keys(b.totals || {})))];
     const users = await User.find({ _id: { $in: memberIds } }).select('name').lean();
     const nameMap = Object.fromEntries(users.map((u) => [u._id.toString(), u.name]));
