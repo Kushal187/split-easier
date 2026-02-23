@@ -49,6 +49,34 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    // If Splitwise returns code/state to a frontend route, forward to backend callback.
+    const searchParams = new URLSearchParams(window.location.search);
+    const oauthCode = searchParams.get('code');
+    const oauthState = searchParams.get('state');
+    if (oauthCode && oauthState) {
+      const callbackQuery = new URLSearchParams({ code: oauthCode, state: oauthState }).toString();
+      window.location.replace(`/api/auth/splitwise/callback?${callbackQuery}`);
+      return;
+    }
+
+    // Accept auth payload from either hash or query (resilient to route/rewrite differences).
+    const hashParams = new URLSearchParams(window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '');
+    const urlToken = hashParams.get('token') || searchParams.get('token');
+    const urlUser = hashParams.get('user') || searchParams.get('user');
+    if (urlToken && urlUser) {
+      try {
+        const parsedUser = JSON.parse(urlUser);
+        applyAuth(urlToken, parsedUser);
+        if (window.location.hash || window.location.search) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+        setLoading(false);
+        return;
+      } catch (_) {
+        // Ignore malformed callback payload and continue with stored session.
+      }
+    }
+
     const token = localStorage.getItem(STORAGE_TOKEN);
     const stored = localStorage.getItem(STORAGE_USER);
     if (token && stored) {
@@ -62,7 +90,7 @@ export function AuthProvider({ children }) {
       }
     }
     setLoading(false);
-  }, []);
+  }, [applyAuth]);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, logout, applyAuth, getToken: getAuthToken }}>

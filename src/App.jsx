@@ -73,6 +73,7 @@ export default function App() {
         }
       />
       <Route path="/oauth/splitwise/callback" element={<SplitwiseCallback />} />
+      <Route path="/oauth/splitwise/callback/*" element={<SplitwiseCallback />} />
       <Route
         path="/dashboard"
         element={
