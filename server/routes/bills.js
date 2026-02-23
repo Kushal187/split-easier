@@ -3,11 +3,6 @@ import Bill from '../models/Bill.js';
 import Household from '../models/Household.js';
 import User from '../models/User.js';
 import { splitwiseFetch, withSplitwiseAccessToken } from '../lib/splitwise.js';
-import {
-  OCR_MAX_IMAGE_BYTES,
-  parseReceiptImageDataUrl,
-  extractReceiptItemsFromImage
-} from '../lib/ocr.js';
 
 const router = Router({ mergeParams: true });
 
@@ -303,30 +298,6 @@ async function updateBillOnSplitwise({ bill, household, actorUserId }) {
 }
 
 router.use(ensureMember);
-
-router.post('/ocr', async (req, res, next) => {
-  try {
-    const { imageDataUrl, fileName } = req.body || {};
-    const parsed = parseReceiptImageDataUrl(imageDataUrl);
-    if (!parsed || !parsed.mimeType.startsWith('image/')) {
-      return res.status(400).json({ error: 'Upload a valid image receipt (JPG, PNG, WEBP, HEIC).' });
-    }
-
-    const imageSize = Math.floor((parsed.base64.length * 3) / 4);
-    if (imageSize > OCR_MAX_IMAGE_BYTES) {
-      return res.status(400).json({ error: 'Image is too large. Max size is 6MB.' });
-    }
-
-    const result = await extractReceiptItemsFromImage({
-      base64Image: parsed.base64,
-      mimeType: parsed.mimeType,
-      fileName: typeof fileName === 'string' ? fileName : ''
-    });
-    res.json(result);
-  } catch (e) {
-    next(e);
-  }
-});
 
 router.get('/', async (req, res, next) => {
   try {
