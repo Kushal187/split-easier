@@ -110,13 +110,57 @@ function billResponse(billDoc, nameMap = {}) {
 }
 
 function buildSplitwiseDetails(items, memberNameById = {}) {
-  const lines = items.slice(0, 25).map((item) => {
-    const people = (item.splitBetween || [])
-      .map((id) => memberNameById[id?.toString?.() || String(id)] || String(id))
-      .join(', ');
-    return `${item.name}: ${formatMoney(item.amount)} (${people || 'unassigned'})`;
+  const byUser = new Map();
+  const userOrder = [];
+  let unassignedTotal = 0;
+  const unassignedLines = [];
+
+  items.forEach((item) => {
+    const amount = Number(item?.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+
+    const splitBetween = (item?.splitBetween || [])
+      .map((id) => id?.toString?.() || String(id))
+      .filter(Boolean);
+    const itemName = item?.name?.trim() || 'Item';
+
+    if (!splitBetween.length) {
+      unassignedTotal += amount;
+      unassignedLines.push(`- ${itemName}: ${formatMoney(amount)}`);
+      return;
+    }
+
+    const share = amount / splitBetween.length;
+    splitBetween.forEach((userId) => {
+      if (!byUser.has(userId)) {
+        byUser.set(userId, { lines: [], total: 0 });
+        userOrder.push(userId);
+      }
+      const group = byUser.get(userId);
+      group.lines.push(`- ${itemName}: ${formatMoney(share)}`);
+      group.total += share;
+    });
   });
-  return `SplitEasier itemized bill\n${lines.join('\n')}`;
+
+  const lines = ['SplitEasier itemized bill'];
+  userOrder.forEach((userId) => {
+    const name = memberNameById[userId] || userId;
+    const group = byUser.get(userId);
+    if (!group || !group.lines.length) return;
+    lines.push('');
+    lines.push(`${name}:`);
+    lines.push(...group.lines.slice(0, 30));
+    lines.push(`Subtotal: ${formatMoney(group.total)}`);
+  });
+
+  if (unassignedLines.length) {
+    lines.push('');
+    lines.push('Unassigned:');
+    lines.push(...unassignedLines.slice(0, 20));
+    lines.push(`Subtotal: ${formatMoney(unassignedTotal)}`);
+  }
+
+  return lines.join('\n');
 }
 
 function buildSplitwisePayload({ bill, household, actorUserId, users }) {
