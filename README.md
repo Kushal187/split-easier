@@ -105,6 +105,13 @@ Vercel serverless API bridge:
   - per-member totals
 - Only bill creator can edit/delete that bill.
 
+### 3a. Receipt OCR import
+- Upload endpoint: `POST /households/:householdId/bills/ocr`
+- Pipeline:
+  - Docling extracts OCR text from receipt image
+  - Gemini 2.5 Flash converts OCR text to structured bill items
+- No heuristic backfill is used; OCR import depends on AI extraction output.
+
 ### 4. Splitwise sync
 
 Push sync (local -> Splitwise):
@@ -188,6 +195,7 @@ Households:
 Bills:
 - `GET /households/:householdId/bills`
 - `POST /households/:householdId/bills`
+- `POST /households/:householdId/bills/ocr`
 - `GET /households/:householdId/bills/:billId`
 - `PATCH /households/:householdId/bills/:billId`
 - `DELETE /households/:householdId/bills/:billId`
@@ -205,6 +213,7 @@ Splitwise passthrough routes:
 - Node.js 18+ (recommended)
 - npm
 - MongoDB (Atlas or local instance)
+- Docling installed on the backend host (`docling` CLI)
 - Splitwise developer app (for OAuth)
 
 ### Install
@@ -243,6 +252,15 @@ Optional:
 | `SPLITWISE_BASE_URL` | `https://secure.splitwise.com` |
 | `SPLITWISE_API_BASE` | `https://secure.splitwise.com/api/v3.0` |
 | `SPLITWISE_STATE_SECRET` | falls back to `JWT_SECRET` |
+| `DOCLING_BIN` | `docling` |
+| `DOCLING_TIMEOUT_MS` | `120000` |
+| `GEMINI_API_KEY` | unset |
+| `GEMINI_MODEL` | `gemini-2.5-flash` |
+| `GEMINI_API_VERSION` | `v1beta` |
+| `OCR_TEXT_CHAR_LIMIT` | `12000` |
+
+Note:
+- Receipt OCR import (`POST /households/:householdId/bills/ocr`) requires `GEMINI_API_KEY`.
 
 ## Splitwise OAuth Setup
 
