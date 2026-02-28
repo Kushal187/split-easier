@@ -20,6 +20,8 @@
   --gradient-shadow: rgba(5, 150, 105, 0.25);
   --error: #f87171;
   --error-bg: rgba(248, 113, 113, 0.1);
+  --brand-green: #5ba88c;
+  --brand-coral: #e8845c;
   --radius: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
@@ -456,32 +458,33 @@ a:hover {
   gap: 12px;
   text-decoration: none;
   color: inherit;
+  transition: opacity 0.2s ease;
 }
 
 .auth-logo-link:hover {
   color: var(--text);
+  opacity: 0.85;
 }
 
 .auth-logo-icon {
   width: 48px;
   height: 48px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #059669, #0d9488);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  box-shadow: 0 10px 25px var(--gradient-shadow);
+  flex-shrink: 0;
 }
 
 .auth-logo-text {
   font-size: 1.4rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
 .auth-logo-text span {
-  color: var(--accent);
+  color: var(--brand-green);
+  font-weight: 500;
 }
 
 .auth-subtitle {
@@ -717,30 +720,36 @@ a:hover {
 .header-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   text-decoration: none;
   color: var(--text);
+  transition: opacity 0.2s ease;
+}
+
+.header-logo:hover {
+  color: var(--text);
+  opacity: 0.85;
 }
 
 .header-logo-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #059669, #0d9488);
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  flex-shrink: 0;
 }
 
 .header-logo-text {
   font-weight: 700;
-  font-size: 1.05rem;
-  letter-spacing: -0.01em;
+  font-size: 1.375rem;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
 .header-logo-text span {
-  color: var(--accent);
+  color: var(--brand-green);
+  font-weight: 500;
 }
 
 .header-user {
@@ -1648,55 +1657,61 @@ a:hover {
 .landing-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   text-decoration: none;
   color: var(--text);
+  transition: opacity 0.2s ease;
 }
 
 .landing-logo:hover {
   color: var(--text);
+  opacity: 0.85;
 }
 
 .landing-logo-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: linear-gradient(135deg, #059669, #0d9488);
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
   flex-shrink: 0;
 }
 
 @media (min-width: 768px) {
   .landing-logo-icon:not(.landing-logo-icon--sm) {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 38px;
+    height: 38px;
   }
 }
 
 .landing-logo-icon--sm {
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
 }
 
 .landing-logo-text {
-  font-size: 1rem;
+  font-size: 1.375rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   white-space: nowrap;
+  line-height: 1;
 }
 
 @media (min-width: 768px) {
   .landing-logo-text {
-    font-size: 1.15rem;
+    font-size: 1.375rem;
   }
 }
 
 .landing-logo-text span {
-  color: var(--accent);
+  color: var(--brand-green);
+  font-weight: 500;
+}
+
+.brand-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .landing-nav-links {

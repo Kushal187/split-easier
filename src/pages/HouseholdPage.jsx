@@ -19,6 +19,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { BrandIcon, BrandWordmark } from '../components/BrandLogo.jsx';
 import { ThemeToggle } from '../components/ThemeToggle.jsx';
 import { api } from '../api/client.js';
 
@@ -387,11 +388,9 @@ export default function HouseholdPage() {
               <div style={{ width: 1, height: 16, background: 'var(--glass-border)', flexShrink: 0 }} />
               <Link to="/dashboard" className="header-logo">
                 <div className="header-logo-icon" style={{ width: 24, height: 24 }}>
-                  <Receipt size={12} />
+                  <BrandIcon />
                 </div>
-                <span className="header-logo-text" style={{ fontSize: '0.875rem' }}>
-                  Split<span>Easier</span>
-                </span>
+                <BrandWordmark className="header-logo-text" style={{ fontSize: '0.875rem' }} />
               </Link>
             </div>
           </div>

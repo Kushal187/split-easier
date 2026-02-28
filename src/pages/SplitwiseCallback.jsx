@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Receipt } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { BrandIcon, BrandWordmark } from '../components/BrandLogo.jsx';
 
 function getParams() {
   const hashParams = new URLSearchParams(window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '');
@@ -56,11 +56,9 @@ export default function SplitwiseCallback() {
         <div className="auth-logo">
           <Link to="/" className="auth-logo-link">
             <div className="auth-logo-icon">
-              <Receipt size={24} />
+              <BrandIcon />
             </div>
-            <span className="auth-logo-text">
-              Split<span>Easier</span>
-            </span>
+            <BrandWordmark className="auth-logo-text" />
           </Link>
           <p className="auth-subtitle">Finishing Splitwise sign-in...</p>
         </div>

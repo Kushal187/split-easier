@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Receipt, Plus, Users, ChevronRight, LogOut, Home, X, RefreshCw } from 'lucide-react';
+import { Plus, Users, ChevronRight, LogOut, Home, X, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { BrandIcon, BrandWordmark } from '../components/BrandLogo.jsx';
 import { ThemeToggle } from '../components/ThemeToggle.jsx';
 import { api } from '../api/client.js';
 
@@ -109,11 +110,9 @@ export default function Dashboard() {
           <div className="header-inner">
             <Link to="/dashboard" className="header-logo">
               <div className="header-logo-icon">
-                <Receipt size={16} />
+                <BrandIcon />
               </div>
-              <span className="header-logo-text">
-                Split<span>Easier</span>
-              </span>
+              <BrandWordmark className="header-logo-text" />
             </Link>
             <div className="header-user">
               <ThemeToggle />

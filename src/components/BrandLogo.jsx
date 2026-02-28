@@ -1,0 +1,37 @@
+export function BrandIcon({ className = '', title = 'SplitEasier', ...props }) {
+  const classes = ['brand-icon', className].filter(Boolean).join(' ');
+
+  return (
+    <svg
+      className={classes}
+      viewBox="0 0 120 120"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden={title ? undefined : true}
+      role={title ? 'img' : undefined}
+      {...props}
+    >
+      {title ? <title>{title}</title> : null}
+      <rect width="120" height="120" rx="26" fill="#5BA88C" />
+      <path
+        d="M32 30L36 34L40 30L44 34L48 30L52 34L56 30L60 34L64 30L68 34L72 30L76 34L80 30L84 34L88 30V90L84 86L80 90L76 86L72 90L68 86L64 90L60 86L56 90L52 86L48 90L44 86L40 90L36 86L32 90V30Z"
+        fill="#FFFFFF"
+      />
+      <rect x="58.5" y="34" width="3" height="52" rx="1.5" fill="#1E3A4F" />
+      <rect x="38" y="42" width="16" height="8" rx="2" fill="#5BA88C" />
+      <rect x="38" y="56" width="16" height="8" rx="2" fill="#5BA88C" />
+      <rect x="38" y="70" width="16" height="8" rx="2" fill="#5BA88C" />
+      <rect x="66" y="42" width="16" height="8" rx="2" fill="#E8845C" />
+      <rect x="66" y="56" width="16" height="8" rx="2" fill="#E8845C" />
+      <rect x="66" y="70" width="16" height="8" rx="2" fill="#E8845C" />
+    </svg>
+  );
+}
+
+export function BrandWordmark({ className = '', ...props }) {
+  return (
+    <span className={className} {...props}>
+      Split<span>Easier</span>
+    </span>
+  );
+}

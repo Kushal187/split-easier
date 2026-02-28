@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Receipt, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { BrandIcon, BrandWordmark } from '../components/BrandLogo.jsx';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -48,11 +49,9 @@ export default function Login() {
         <div className="auth-logo">
           <Link to="/" className="auth-logo-link">
             <div className="auth-logo-icon">
-              <Receipt size={24} />
+              <BrandIcon />
             </div>
-            <span className="auth-logo-text">
-              Split<span>Easier</span>
-            </span>
+            <BrandWordmark className="auth-logo-text" />
           </Link>
           <p className="auth-subtitle">Welcome back</p>
         </div>

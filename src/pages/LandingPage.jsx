@@ -11,6 +11,7 @@ import {
   Shield,
   Smartphone,
 } from 'lucide-react';
+import { BrandIcon, BrandWordmark } from '../components/BrandLogo.jsx';
 import { ThemeToggle } from '../components/ThemeToggle.jsx';
 
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1527832574645-f2868a00cef1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080';
@@ -40,9 +41,9 @@ export default function LandingPage() {
       <nav className="landing-nav">
         <Link to="/" className="landing-logo">
           <div className="landing-logo-icon">
-            <Receipt size={16} />
+            <BrandIcon />
           </div>
-          <span className="landing-logo-text">Split<span>Easier</span></span>
+          <BrandWordmark className="landing-logo-text" />
         </Link>
         <div className="landing-nav-links">
           <ThemeToggle />
@@ -181,7 +182,7 @@ export default function LandingPage() {
       <footer className="landing-footer">
         <div className="landing-footer-inner">
           <div className="landing-logo-icon landing-logo-icon--sm">
-            <Receipt size={12} />
+            <BrandIcon title="" />
           </div>
           <span>SplitEasier © {new Date().getFullYear()}</span>
         </div>
