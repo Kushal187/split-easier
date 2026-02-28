@@ -44,6 +44,17 @@ function getInitial(name) {
   return (name || '?').charAt(0).toUpperCase();
 }
 
+function formatDisplayName(name) {
+  const cleaned = String(name || '').trim().replace(/\s+/g, ' ');
+  if (!cleaned) return '';
+
+  const parts = cleaned.split(' ');
+  const first = parts[0] || '';
+  const last = parts.length > 1 ? parts[parts.length - 1] : '';
+  if (first && last) return `${first} ${last.charAt(0)}.`;
+  return first || cleaned;
+}
+
 function formatDate(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleDateString('en-US', {
@@ -239,7 +250,7 @@ function SavedBillCard({ bill, canEdit, onEdit, onDelete, deleting }) {
                   {getInitial(names[userId])}
                 </span>
                 <span className="member-name bill-member-name">
-                  {names[userId] || userId}
+                  {formatDisplayName(names[userId]) || userId}
                 </span>
                 <span className="bill-member-amount">{formatMoney(total)}</span>
                 {hasBreakdown && (
@@ -478,7 +489,7 @@ export default function HouseholdPage() {
                             </span>
                             <div className="member-info">
                               <div className="member-name">
-                                {m.name}
+                                {formatDisplayName(m.name)}
                                 {m.id === household.ownerId && <span className="badge-owner">owner</span>}
                                 {m.id === user?.id && m.id !== household.ownerId && <span className="badge-you">you</span>}
                               </div>
@@ -643,6 +654,7 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
   const [saving, setSaving] = useState(false);
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrMessage, setOcrMessage] = useState('');
+  const [showManualItemForm, setShowManualItemForm] = useState(true);
 
   function revealBillNameInput(behavior = 'smooth') {
     const target = billNameInputRef.current || cardRef.current;
@@ -822,6 +834,7 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
         parsedItems: parsedItems.length
       });
       setItems((prev) => [...prev, ...parsedItems]);
+      setShowManualItemForm(false);
       if (!billName.trim() && extracted?.billName) {
         setBillName(String(extracted.billName).trim());
       }
@@ -968,72 +981,91 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
 
         <div className="new-bill-divider" />
 
-        <div className="new-bill-subtitle">
+        <button
+          type="button"
+          className="section-card-toggle"
+          onClick={() => setShowManualItemForm((prev) => !prev)}
+          aria-expanded={showManualItemForm}
+        >
           <ShoppingCart size={16} className="new-bill-subtitle-icon" />
-          <span className="new-bill-subtitle-text">Add items</span>
-        </div>
+          <span className="section-card-toggle-label">Add items manually</span>
+          <span className="section-card-toggle-meta">Optional</span>
+          {showManualItemForm ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="new-bill-grid">
-            <div>
-              <label className="label-glass" style={{ fontSize: '0.75rem', marginBottom: 6 }}>Item name</label>
-              <input
-                type="text"
-                value={itemForm.name}
-                onChange={(e) => setItemForm((c) => ({ ...c, name: e.target.value }))}
-                placeholder="e.g. Margherita Pizza"
-                className="input-glass"
-                style={{ minHeight: 40, padding: '10px 12px', fontSize: '0.875rem' }}
-              />
-            </div>
-            <div>
-              <label className="label-glass" style={{ fontSize: '0.75rem', marginBottom: 6 }}>Amount ($)</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={itemForm.amount}
-                onChange={(e) => setItemForm((c) => ({ ...c, amount: e.target.value }))}
-                placeholder="0.00"
-                className="input-glass"
-                style={{ minHeight: 40, padding: '10px 12px', fontSize: '0.875rem' }}
-              />
-            </div>
-          </div>
+        <AnimatePresence initial={false}>
+          {showManualItemForm && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="section-card-panel"
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div className="new-bill-grid">
+                  <div>
+                    <label className="label-glass" style={{ fontSize: '0.75rem', marginBottom: 6 }}>Item name</label>
+                    <input
+                      type="text"
+                      value={itemForm.name}
+                      onChange={(e) => setItemForm((c) => ({ ...c, name: e.target.value }))}
+                      placeholder="e.g. Margherita Pizza"
+                      className="input-glass"
+                      style={{ minHeight: 40, padding: '10px 12px', fontSize: '0.875rem' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="label-glass" style={{ fontSize: '0.75rem', marginBottom: 6 }}>Amount ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={itemForm.amount}
+                      onChange={(e) => setItemForm((c) => ({ ...c, amount: e.target.value }))}
+                      placeholder="0.00"
+                      className="input-glass"
+                      style={{ minHeight: 40, padding: '10px 12px', fontSize: '0.875rem' }}
+                    />
+                  </div>
+                </div>
 
-          <div>
-            <label className="label-glass" style={{ fontSize: '0.75rem', marginBottom: 8 }}>Split between</label>
-            <div className="new-bill-chips">
-              {members.map((m) => {
-                const isSelected = itemForm.splitBetween.includes(m.id);
-                return (
-                  <button
-                    type="button"
-                    key={m.id}
-                    className={`chip-member ${isSelected ? 'selected' : ''}`}
-                    onClick={() => toggleMember(m.id)}
-                  >
-                    <span className={`avatar-gradient ${getAvatarColor(m.id)}`} style={{ width: 20, height: 20, fontSize: '0.6rem' }}>
-                      {getInitial(m.name)}
-                    </span>
-                    {m.name}
-                    {isSelected && <Check size={12} />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                <div>
+                  <label className="label-glass" style={{ fontSize: '0.75rem', marginBottom: 8 }}>Split between</label>
+                  <div className="new-bill-chips">
+                    {members.map((m) => {
+                      const isSelected = itemForm.splitBetween.includes(m.id);
+                      return (
+                        <button
+                          type="button"
+                          key={m.id}
+                          className={`chip-member ${isSelected ? 'selected' : ''}`}
+                          onClick={() => toggleMember(m.id)}
+                        >
+                          <span className={`avatar-gradient ${getAvatarColor(m.id)}`} style={{ width: 20, height: 20, fontSize: '0.6rem' }}>
+                            {getInitial(m.name)}
+                          </span>
+                          {formatDisplayName(m.name)}
+                          {isSelected && <Check size={12} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-          <button
-            type="button"
-            className="btn-add-item"
-            onClick={addItem}
-            disabled={!itemForm.name.trim() || normalizeAmount(itemForm.amount) <= 0 || itemForm.splitBetween.length === 0}
-          >
-            <Plus size={16} />
-            Add item to bill
-          </button>
-        </div>
+                <button
+                  type="button"
+                  className="btn-add-item"
+                  onClick={addItem}
+                  disabled={!itemForm.name.trim() || normalizeAmount(itemForm.amount) <= 0 || itemForm.splitBetween.length === 0}
+                >
+                  <Plus size={16} />
+                  Add item to bill
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {error && <p className="error" style={{ marginTop: 12 }}>{error}</p>}
 
@@ -1079,7 +1111,7 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
                               <span className={`avatar-gradient ${getAvatarColor(member.id)}`} style={{ width: 16, height: 16, fontSize: '0.55rem' }}>
                                 {getInitial(member.name)}
                               </span>
-                              {member.name}
+                              {formatDisplayName(member.name)}
                             </button>
                           );
                         })}
@@ -1101,7 +1133,7 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
             <div style={{ marginTop: 16 }}>
               <p className="welcome-sub" style={{ marginBottom: 12 }}>
                 Who owes what: {members.map((m) => (
-                  <span key={m.id} style={{ marginRight: 8 }}>{m.name} {formatMoney(draftTotals[m.id] ?? 0)}</span>
+                  <span key={m.id} style={{ marginRight: 8 }}>{formatDisplayName(m.name)} {formatMoney(draftTotals[m.id] ?? 0)}</span>
                 ))}
               </p>
               <button
