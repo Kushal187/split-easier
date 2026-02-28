@@ -2876,9 +2876,9 @@ a:hover {
 }
 
 .chip-member {
-  background: var(--surface-muted);
+  background: transparent;
   border-color: var(--glass-border);
-  color: var(--text-muted-3);
+  color: var(--text-muted);
 }
 
 .chip-member:hover {
@@ -2887,9 +2887,19 @@ a:hover {
 }
 
 .chip-member.selected {
-  background: var(--surface-accent);
-  border-color: transparent;
-  color: var(--accent-strong);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.chip-member .avatar-gradient {
+  opacity: 0.72;
+}
+
+.chip-member.selected .avatar-gradient {
+  opacity: 1;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
 .added-items-block,
