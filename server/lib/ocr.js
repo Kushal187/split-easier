@@ -86,10 +86,9 @@ function normalizeGeminiModelName(model) {
   return String(model || '').trim().replace(/^models\//, '');
 }
 
-function buildAiReceiptPrompt(text) {
-  const clippedText = String(text || '').slice(0, OCR_TEXT_CHAR_LIMIT);
+function buildAiReceiptInstructions() {
   return [
-    'Extract every purchasable line item from the following receipt OCR text.',
+    'Extract every purchasable line item from this receipt.',
     '',
     'INCLUDE:',
     '- Each individual product/item the customer bought',
@@ -110,10 +109,27 @@ function buildAiReceiptPrompt(text) {
     '- "name": short, readable product name (trim codes/SKUs). Use "Tax", "Service Charge", or "Tip" for those lines.',
     '- "amount": positive number representing the final dollar amount for that line',
     '- "billName": derive from the store/merchant name if visible, otherwise use "Receipt"',
+  ].join('\n');
+}
+
+function buildAiReceiptPrompt(text) {
+  const clippedText = String(text || '').slice(0, OCR_TEXT_CHAR_LIMIT);
+  return [
+    buildAiReceiptInstructions(),
+    '',
+    'Use the following OCR text as supporting context when extracting the receipt items.',
     '',
     '--- OCR TEXT START ---',
     clippedText,
     '--- OCR TEXT END ---'
+  ].join('\n');
+}
+
+function buildAiReceiptImagePrompt() {
+  return [
+    buildAiReceiptInstructions(),
+    '',
+    'Read the attached receipt image directly and return strict JSON only.'
   ].join('\n');
 }
 
@@ -179,17 +195,38 @@ async function runGeminiOnReceiptText(text, fileName = '') {
     `https://generativelanguage.googleapis.com/${version}/models/${encodeURIComponent(model)}:generateContent` +
     `?key=${encodeURIComponent(apiKey)}`;
 
+  return runGeminiReceiptRequest({
+    endpoint,
+    version,
+    model,
+    fileName,
+    parts: [{ text: buildAiReceiptPrompt(text) }],
+    systemInstruction: 'You extract accurate receipt line items from OCR text and output strict JSON.',
+    failureLabel: 'Gemini OCR post-process failed'
+  });
+}
+
+async function runGeminiReceiptRequest({
+  endpoint,
+  version,
+  model,
+  fileName = '',
+  parts,
+  systemInstruction,
+  failureLabel
+}) {
+
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       systemInstruction: {
-        parts: [{ text: 'You extract accurate receipt line items from OCR text and output strict JSON.' }]
+        parts: [{ text: systemInstruction }]
       },
       contents: [
         {
           role: 'user',
-          parts: [{ text: buildAiReceiptPrompt(text) }]
+          parts
         }
       ],
       generationConfig: {
@@ -219,7 +256,7 @@ async function runGeminiOnReceiptText(text, fileName = '') {
 
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
-    const message = `Gemini OCR post-process failed (${version}:${model}): ${detail || response.statusText}`;
+    const message = `${failureLabel} (${version}:${model}): ${detail || response.statusText}`;
     const err = new Error(message);
     err.status = inferAiErrorStatus(message);
     throw err;
@@ -243,6 +280,17 @@ async function runGeminiOnReceiptText(text, fileName = '') {
   return normalized;
 }
 
+function extractBase64Payload(imageDataUrl) {
+  const raw = String(imageDataUrl || '').trim();
+  if (!raw) return '';
+  return raw.replace(/^data:[^;]+;base64,/, '');
+}
+
+function inferMimeTypeFromImageDataUrl(imageDataUrl, fallback = '') {
+  const match = String(imageDataUrl || '').match(/^data:([^;]+);base64,/i);
+  return match?.[1] || String(fallback || '').trim() || 'image/jpeg';
+}
+
 export async function extractReceiptItemsFromOcrText({ text, fileName = '' }) {
   const cleaned = sanitizeOcrText(text);
   if (!cleaned) {
@@ -252,4 +300,44 @@ export async function extractReceiptItemsFromOcrText({ text, fileName = '' }) {
   }
   const bounded = cleaned.slice(0, OCR_MAX_RAW_TEXT_CHARS);
   return runGeminiOnReceiptText(bounded, fileName);
+}
+
+export async function extractReceiptItemsFromImage({ imageDataUrl, mimeType = '', fileName = '' }) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    const err = new Error('GEMINI_API_KEY is required for OCR item extraction.');
+    err.status = 503;
+    throw err;
+  }
+
+  const base64 = extractBase64Payload(imageDataUrl);
+  if (!base64) {
+    const err = new Error('No receipt image was provided.');
+    err.status = 400;
+    throw err;
+  }
+
+  const model = normalizeGeminiModelName(GEMINI_MODEL);
+  const version = String(GEMINI_API_VERSION || 'v1beta').trim() || 'v1beta';
+  const endpoint =
+    `https://generativelanguage.googleapis.com/${version}/models/${encodeURIComponent(model)}:generateContent` +
+    `?key=${encodeURIComponent(apiKey)}`;
+
+  return runGeminiReceiptRequest({
+    endpoint,
+    version,
+    model,
+    fileName,
+    parts: [
+      { text: buildAiReceiptImagePrompt() },
+      {
+        inlineData: {
+          mimeType: inferMimeTypeFromImageDataUrl(imageDataUrl, mimeType),
+          data: base64
+        }
+      }
+    ],
+    systemInstruction: 'You extract accurate receipt line items directly from receipt images and output strict JSON.',
+    failureLabel: 'Gemini receipt-image extraction failed'
+  });
 }

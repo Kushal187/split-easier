@@ -62,6 +62,22 @@ function createClientId() {
   return `item-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function logReceiptOcr(stage, details = {}) {
+  console.log(`[receipt-ocr] ${stage}`, details);
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Failed to read receipt image.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+/*
+Legacy browser OCR path kept for reference.
+
 const TESSERACT_CDN_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
 let tesseractLoaderPromise = null;
 
@@ -116,6 +132,7 @@ async function extractTextWithBrowserOcr(file, onProgress) {
   });
   return String(result?.data?.text || '');
 }
+*/
 
 function normalizeAmount(value) {
   const amount = Number(value);
@@ -720,13 +737,28 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
     event.target.value = '';
     if (!file || ocrLoading) return;
 
+    logReceiptOcr('upload:selected', {
+      name: file.name || '',
+      type: file.type || '',
+      size: file.size || 0
+    });
+
     if (!isSupportedReceiptImageFile(file)) {
+      logReceiptOcr('upload:unsupported-file', {
+        name: file.name || '',
+        type: file.type || ''
+      });
       setError('Please upload an image receipt (JPG, PNG, WEBP, HEIC).');
       return;
     }
 
     const maxSize = 6 * 1024 * 1024;
     if (file.size > maxSize) {
+      logReceiptOcr('upload:file-too-large', {
+        name: file.name || '',
+        size: file.size || 0,
+        maxSize
+      });
       setError('Image is too large. Max size is 6MB.');
       return;
     }
@@ -736,18 +768,34 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
     setOcrLoading(true);
 
     try {
-      setOcrMessage('Loading OCR engine...');
-      const ocrText = await extractTextWithBrowserOcr(file, (msg) => {
-        setOcrMessage(formatOcrStatusMessage(msg));
-      });
-      if (!ocrText.trim()) {
-        setError('Could not read any text from this image. Try a clearer receipt photo.');
-        return;
-      }
+      // Legacy OCR-first flow intentionally disabled in favor of direct Gemini image input.
+      // setOcrMessage('Loading OCR engine...');
+      // const ocrText = await extractTextWithBrowserOcr(file, (msg) => {
+      //   setOcrMessage(formatOcrStatusMessage(msg));
+      // });
+      // const extracted = await api.post(`/households/${householdId}/bills/ocr`, {
+      //   ocrText,
+      //   fileName: file.name
+      // });
 
+      setOcrMessage('Preparing receipt image...');
+      const imageDataUrl = await readFileAsDataUrl(file);
+      logReceiptOcr('upload:image-ready', {
+        fileName: file.name || '',
+        mimeType: file.type || '',
+        dataUrlLength: imageDataUrl.length
+      });
+
+      setOcrMessage('Sending receipt to AI...');
       const extracted = await api.post(`/households/${householdId}/bills/ocr`, {
-        ocrText,
+        imageDataUrl,
+        mimeType: file.type || '',
         fileName: file.name
+      });
+      logReceiptOcr('ai:response', {
+        fileName: file.name || '',
+        itemCount: Array.isArray(extracted?.items) ? extracted.items.length : 0,
+        billName: extracted?.billName || ''
       });
 
       const splitBetween = members.map((m) => m.id);
@@ -761,16 +809,31 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
         .filter((item) => item.name && Number.isFinite(item.amount) && item.amount > 0);
 
       if (!parsedItems.length) {
+        logReceiptOcr('ai:no-items-detected', {
+          fileName: file.name || '',
+          extractedItems: extracted?.items?.length || 0
+        });
         setError('No receipt items were detected. Try a clearer image.');
         return;
       }
 
+      logReceiptOcr('ai:success', {
+        fileName: file.name || '',
+        parsedItems: parsedItems.length
+      });
       setItems((prev) => [...prev, ...parsedItems]);
       if (!billName.trim() && extracted?.billName) {
         setBillName(String(extracted.billName).trim());
       }
       setOcrMessage(`Imported ${parsedItems.length} item${parsedItems.length === 1 ? '' : 's'} from ${file.name}.`);
     } catch (err) {
+      console.error('[receipt-ocr] upload:failed', {
+        fileName: file?.name || '',
+        message: err?.message,
+        status: err?.status,
+        data: err?.data
+      });
+      setOcrMessage('');
       setError(err.data?.error || err.message || 'Failed to scan receipt.');
     } finally {
       setOcrLoading(false);
@@ -898,7 +961,7 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
                 disabled={ocrLoading}
               />
             </label>
-            <p className="receipt-ocr-help">JPG, PNG, WEBP, or HEIC up to 6MB. OCR runs on-device.</p>
+            <p className="receipt-ocr-help">JPG, PNG, WEBP, or HEIC up to 6MB. Receipt images are analyzed directly with AI.</p>
             {ocrMessage && <p className="receipt-ocr-message">{ocrMessage}</p>}
           </div>
         )}
