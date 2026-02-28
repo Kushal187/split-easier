@@ -4,7 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   server: {
-    allowedHosts: ['.loca.lt', '.lhr.life', 'localhost.run'],
+    allowedHosts: ['.loca.lt', '.lhr.life', 'localhost.run', 'prelumbar-crosby-supereloquently.ngrok-free.dev'],
     proxy: {
       '/api': { target: 'http://localhost:3001', changeOrigin: true }
     }
