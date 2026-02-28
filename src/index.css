@@ -2359,28 +2359,28 @@ a:hover {
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --page-bg: #0f1713;
-  --glass-bg: #18221d;
-  --glass-border: #29352f;
-  --glass-border-light: #223029;
-  --input-bg: #121b17;
-  --input-focus-border: #67b08d;
+  --page-bg: #0d1511;
+  --glass-bg: #16201b;
+  --glass-border: #27322d;
+  --glass-border-light: #202a25;
+  --input-bg: #111916;
+  --input-focus-border: #2f8f69;
   --text: #edf4ef;
-  --text-muted: #92a59b;
-  --text-muted-2: #a5b5ae;
+  --text-muted: #8ea398;
+  --text-muted-2: #a2b3ab;
   --text-muted-3: #dbe7e0;
-  --accent: #67b08d;
-  --accent-indigo: #67b08d;
-  --gradient-start: #67b08d;
-  --gradient-end: #67b08d;
-  --gradient-shadow: rgba(103, 176, 141, 0);
+  --accent: #2f8f69;
+  --accent-indigo: #2f8f69;
+  --gradient-start: #2f8f69;
+  --gradient-end: #2f8f69;
+  --gradient-shadow: rgba(47, 143, 105, 0);
   --error: #ff8f8f;
   --error-bg: rgba(190, 76, 76, 0.16);
-  --surface-muted: #1d2923;
-  --surface-muted-strong: #24322b;
-  --surface-accent: #20352b;
-  --accent-strong: #7fc39f;
-  --focus-ring: rgba(103, 176, 141, 0.18);
+  --surface-muted: #1a2520;
+  --surface-muted-strong: #212d27;
+  --surface-accent: #1c3026;
+  --accent-strong: #409a74;
+  --focus-ring: rgba(47, 143, 105, 0.18);
   --shadow-card: none;
 }
 
