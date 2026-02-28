@@ -842,6 +842,12 @@ a:hover {
   gap: 8px;
 }
 
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Button small primary (New household, New bill) */
 .btn-sm-primary {
   display: inline-flex;
