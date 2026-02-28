@@ -4,11 +4,20 @@ const STORAGE_THEME = 'splitEasierTheme';
 
 const ThemeContext = createContext(null);
 
+function getInitialTheme() {
+  if (typeof window === 'undefined') return 'light';
+
+  try {
+    const stored = localStorage.getItem(STORAGE_THEME);
+    if (stored === 'light' || stored === 'dark') return stored;
+  } catch (_) {}
+
+  if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) return 'dark';
+  return 'light';
+}
+
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState(() => {
-    if (typeof window === 'undefined') return 'dark';
-    return (localStorage.getItem(STORAGE_THEME) || 'dark');
-  });
+  const [theme, setThemeState] = useState(getInitialTheme);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);

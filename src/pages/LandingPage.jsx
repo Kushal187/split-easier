@@ -47,8 +47,7 @@ export default function LandingPage() {
         </Link>
         <div className="landing-nav-links">
           <ThemeToggle />
-          <Link to="/login" className="landing-nav-link">Sign in</Link>
-          <Link to="/signup" className="landing-nav-cta">Get started free</Link>
+          <Link to="/login" className="landing-nav-cta">Sign in</Link>
         </div>
       </nav>
 
