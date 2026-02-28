@@ -2699,8 +2699,6 @@ a:hover {
 
 .household-card-avatar {
   border-radius: 14px;
-  background: var(--surface-accent);
-  color: var(--accent-strong);
 }
 
 .household-card-chevron {
