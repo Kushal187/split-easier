@@ -71,11 +71,16 @@ function normalizeTotals(totals) {
   return normalized;
 }
 
+function isSplitwisePayment(expense) {
+  return expense?.payment === true;
+}
+
 function projectSplitwiseExpenseToLocalBill({
   expense,
   localBySplitwiseId,
   allowedMemberIds,
-  fallbackCreatorId
+  fallbackCreatorId,
+  requiredParticipantId
 }) {
   const splitwiseExpenseId = expense?.id ? String(expense.id) : null;
   if (!splitwiseExpenseId) return null;
@@ -98,6 +103,9 @@ function projectSplitwiseExpenseToLocalBill({
     });
   }
   if (shares.length === 0) return null;
+  if (requiredParticipantId && !shares.some((share) => share.localUserId === requiredParticipantId)) {
+    return null;
+  }
 
   const totals = {};
   shares.forEach((share) => {
@@ -321,12 +329,17 @@ router.post('/:id/sync-splitwise', async (req, res, next) => {
           }
           continue;
         }
+        if (isSplitwisePayment(expense)) {
+          summary.skipped += 1;
+          continue;
+        }
 
         const projected = projectSplitwiseExpenseToLocalBill({
           expense,
           localBySplitwiseId,
           allowedMemberIds,
-          fallbackCreatorId: req.user.id
+          fallbackCreatorId: req.user.id,
+          requiredParticipantId: req.user.id
         });
         if (!projected) {
           summary.skipped += 1;
