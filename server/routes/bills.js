@@ -3,7 +3,7 @@ import Bill from '../models/Bill.js';
 import Household from '../models/Household.js';
 import User from '../models/User.js';
 import { splitwiseFetch, withSplitwiseAccessToken } from '../lib/splitwise.js';
-import { OCR_MAX_RAW_TEXT_CHARS, extractReceiptItemsFromOcrText } from '../lib/ocr.js';
+import { OCR_MAX_RAW_TEXT_CHARS, extractReceiptItemsFromImage, extractReceiptItemsFromOcrText } from '../lib/ocr.js';
 
 const router = Router({ mergeParams: true });
 
@@ -346,21 +346,36 @@ router.use(ensureMember);
 
 router.post('/ocr', async (req, res, next) => {
   try {
-    const { ocrText, fileName } = req.body || {};
-    const text = typeof ocrText === 'string' ? ocrText.trim() : '';
-    if (!text) {
+    const { ocrText, fileName, imageDataUrl, mimeType } = req.body || {};
+    const imagePayload = typeof imageDataUrl === 'string' ? imageDataUrl.trim() : '';
+    if (!imagePayload) {
       return res.status(400).json({
-        error: 'Missing OCR text. Extract text on the client and send it as ocrText.'
-      });
-    }
-    if (text.length > OCR_MAX_RAW_TEXT_CHARS) {
-      return res.status(413).json({
-        error: `OCR text is too large. Max length is ${OCR_MAX_RAW_TEXT_CHARS} characters.`
+        error: 'Missing receipt image. Send imageDataUrl for AI receipt analysis.'
       });
     }
 
-    const extracted = await extractReceiptItemsFromOcrText({
-      text,
+    /*
+    Legacy OCR-text fallback kept for reference.
+
+    const text = typeof ocrText === 'string' ? ocrText.trim() : '';
+    if (text) {
+      if (text.length > OCR_MAX_RAW_TEXT_CHARS) {
+        return res.status(413).json({
+          error: `OCR text is too large. Max length is ${OCR_MAX_RAW_TEXT_CHARS} characters.`
+        });
+      }
+
+      const extracted = await extractReceiptItemsFromOcrText({
+        text,
+        fileName: typeof fileName === 'string' ? fileName : ''
+      });
+      return res.json(extracted);
+    }
+    */
+
+    const extracted = await extractReceiptItemsFromImage({
+      imageDataUrl: imagePayload,
+      mimeType: typeof mimeType === 'string' ? mimeType : '',
       fileName: typeof fileName === 'string' ? fileName : ''
     });
 
