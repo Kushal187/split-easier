@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Receipt, Plus, Users, ChevronRight, LogOut, Home, X, RefreshCw } from 'lucide-react';
+import { Plus, ChevronRight, LogOut, Home, X, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { BrandIcon, BrandWordmark } from '../components/BrandLogo.jsx';
 import { ThemeToggle } from '../components/ThemeToggle.jsx';
 import { api } from '../api/client.js';
 
@@ -109,11 +110,9 @@ export default function Dashboard() {
           <div className="header-inner">
             <Link to="/dashboard" className="header-logo">
               <div className="header-logo-icon">
-                <Receipt size={16} />
+                <BrandIcon />
               </div>
-              <span className="header-logo-text">
-                Split<span>Easier</span>
-              </span>
+              <BrandWordmark className="header-logo-text" />
             </Link>
             <div className="header-user">
               <ThemeToggle />
@@ -131,7 +130,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <main className="app" style={{ maxWidth: 896, margin: '0 auto', padding: '40px 24px calc(40px + var(--safe-area-bottom))' }}>
+        <main className="app app-main">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -230,8 +229,7 @@ export default function Dashboard() {
                     <div className="household-card-body">
                       <div className="household-card-name">{h.name}</div>
                       <div className="household-card-meta">
-                        <Users size={14} />
-                        <span>{h.members?.length ?? 0} member{(h.members?.length ?? 0) === 1 ? '' : 's'}</span>
+                        <span>{h.splitwiseGroupId ? 'Splitwise connected' : 'Open household'}</span>
                       </div>
                     </div>
                     <ChevronRight size={16} className="household-card-chevron" />

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  ArrowLeft,
+  ChevronLeft,
   Receipt,
   Users,
   Plus,
@@ -19,7 +19,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { ThemeToggle } from '../components/ThemeToggle.jsx';
+import { BrandIcon, BrandWordmark } from '../components/BrandLogo.jsx';
 import { api } from '../api/client.js';
 
 const AVATAR_COLORS = [
@@ -174,19 +174,19 @@ function SavedBillCard({ bill, canEdit, onEdit, onDelete, deleting }) {
           <div className="bill-card-title">{bill.billName}</div>
           <div className="bill-card-date">{formatDate(bill.createdAt)}</div>
         </div>
-        <div style={{ textAlign: 'right', display: 'flex', gap: 12, alignItems: 'center' }}>
-          <div>
-            <div className="bill-card-total-label">Total</div>
-            <div className="bill-card-total-value">{formatMoney(bill.totalAmount)}</div>
-          </div>
+          <div style={{ textAlign: 'right', display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div>
+              <div className="bill-card-total-label">Total</div>
+              <div className="bill-card-total-value">{formatMoney(bill.totalAmount)}</div>
+            </div>
           {canEdit && (
             <div style={{ display: 'flex', gap: 6 }}>
-              <button type="button" className="btn-remove-member" onClick={onEdit} title="Edit bill">
+              <button type="button" className="icon-button" onClick={onEdit} title="Edit bill">
                 <Pencil size={14} />
               </button>
               <button
                 type="button"
-                className="btn-remove-member"
+                className="icon-button icon-button--danger"
                 onClick={onDelete}
                 disabled={deleting}
                 title="Delete bill"
@@ -260,6 +260,7 @@ export default function HouseholdPage() {
   const [memberEmail, setMemberEmail] = useState('');
   const [addingMember, setAddingMember] = useState(false);
   const [showNewBill, setShowNewBill] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
   const [editingBillId, setEditingBillId] = useState(null);
   const [deletingBillId, setDeletingBillId] = useState(null);
   const [syncingSplitwise, setSyncingSplitwise] = useState(false);
@@ -296,6 +297,7 @@ export default function HouseholdPage() {
       const updated = await api.post(`/households/${id}/members`, { email: memberEmail.trim() });
       setHousehold(updated);
       setMemberEmail('');
+      setShowMembers(true);
     } catch (err) {
       setError(err.data?.error || err.message);
     } finally {
@@ -377,31 +379,25 @@ export default function HouseholdPage() {
 
       <div className="page-content app-shell">
         <header className="header-bar">
-          <div className="header-inner">
-            <ThemeToggle />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <Link to="/dashboard" className="header-back">
-                <ArrowLeft size={16} />
-                <span className="hidden-sm">Dashboard</span>
-              </Link>
-              <div style={{ width: 1, height: 16, background: 'var(--glass-border)', flexShrink: 0 }} />
-              <Link to="/dashboard" className="header-logo">
-                <div className="header-logo-icon" style={{ width: 24, height: 24 }}>
-                  <Receipt size={12} />
-                </div>
-                <span className="header-logo-text" style={{ fontSize: '0.875rem' }}>
-                  Split<span>Easier</span>
-                </span>
-              </Link>
-            </div>
+          <div className="header-inner household-header-inner">
+            <Link to="/dashboard" className="header-back household-header-back">
+              <ChevronLeft size={22} strokeWidth={2.25} />
+              <span className="hidden-sm">Dashboard</span>
+            </Link>
+            <Link to="/dashboard" className="header-logo household-header-logo">
+              <div className="header-logo-icon" style={{ width: 24, height: 24 }}>
+                <BrandIcon />
+              </div>
+              <BrandWordmark className="header-logo-text" style={{ fontSize: '0.875rem' }} />
+            </Link>
           </div>
         </header>
 
-        <main style={{ maxWidth: 896, margin: '0 auto', padding: '32px 24px calc(32px + var(--safe-area-bottom))' }}>
+        <main className="app-main">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8"
+            className="household-summary"
           >
             <h1 className="welcome-title">{household.name}</h1>
             <div className="household-card-meta" style={{ marginTop: 4 }}>
@@ -424,80 +420,105 @@ export default function HouseholdPage() {
             )}
           </motion.div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+          <div className="household-sections">
             {/* Members */}
-            <section>
-              <h2 className="section-label">Members</h2>
-              <div className="members-card">
-                <ul className="members-list">
-                  {members.map((m, i) => (
-                    <motion.li
-                      key={m.id}
-                      className="member-row"
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.06 }}
-                    >
-                      <span className={`avatar-gradient ${getAvatarColor(m.id)}`}>
-                        {getInitial(m.name)}
-                      </span>
-                      <div className="member-info">
-                        <div className="member-name">
-                          {m.name}
-                          {m.id === household.ownerId && <span className="badge-owner">owner</span>}
-                          {m.id === user?.id && m.id !== household.ownerId && <span className="badge-you">you</span>}
+            <section className="members-section">
+              <button
+                type="button"
+                className="section-card-toggle"
+                onClick={() => setShowMembers((prev) => !prev)}
+                aria-expanded={showMembers}
+              >
+                <span className="section-card-toggle-label">Members</span>
+                <span className="section-card-toggle-meta">
+                  {members.length} member{members.length === 1 ? '' : 's'}
+                </span>
+                {showMembers ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+
+              <AnimatePresence initial={false}>
+                {showMembers && (
+                  <motion.div
+                    key="members-panel"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="section-card-panel"
+                  >
+                    <div className="members-card">
+                      <ul className="members-list">
+                        {members.map((m, i) => (
+                          <motion.li
+                            key={m.id}
+                            className="member-row"
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.04 }}
+                          >
+                            <span className={`avatar-gradient ${getAvatarColor(m.id)}`}>
+                              {getInitial(m.name)}
+                            </span>
+                            <div className="member-info">
+                              <div className="member-name">
+                                {m.name}
+                                {m.id === household.ownerId && <span className="badge-owner">owner</span>}
+                                {m.id === user?.id && m.id !== household.ownerId && <span className="badge-you">you</span>}
+                              </div>
+                              <div className="member-email">{m.email}</div>
+                            </div>
+                            {isOwner && m.id !== user?.id && (
+                              <button
+                                type="button"
+                                className="icon-button icon-button--danger"
+                                onClick={() => removeMember(m.id)}
+                                title="Remove member"
+                              >
+                                <UserMinus size={16} />
+                              </button>
+                            )}
+                          </motion.li>
+                        ))}
+                      </ul>
+                      {isOwner && (
+                        <div className="add-member-footer">
+                          {error && <div className="alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+                          <form onSubmit={addMember} className="add-member-form">
+                            <div style={{ position: 'relative', flex: 1 }}>
+                              <UserPlus
+                                size={16}
+                                className="member-add-icon"
+                              />
+                              <input
+                                type="email"
+                                value={memberEmail}
+                                onChange={(e) => { setMemberEmail(e.target.value); setError(''); }}
+                                placeholder="Add member by email"
+                                className="input-glass"
+                                style={{ paddingLeft: 40, minHeight: 40, fontSize: '0.875rem' }}
+                              />
+                            </div>
+                            <button
+                              type="submit"
+                              className="btn-add-member"
+                              disabled={addingMember || !memberEmail.trim()}
+                            >
+                              {addingMember ? <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : 'Add'}
+                            </button>
+                          </form>
                         </div>
-                        <div className="member-email">{m.email}</div>
-                      </div>
-                      {isOwner && m.id !== user?.id && (
-                        <button
-                          type="button"
-                          className="btn-remove-member"
-                          onClick={() => removeMember(m.id)}
-                          title="Remove member"
-                        >
-                          <UserMinus size={16} />
-                        </button>
                       )}
-                    </motion.li>
-                  ))}
-                </ul>
-                {isOwner && (
-                  <div className="add-member-footer">
-                    {error && <div className="alert-error" style={{ marginBottom: 12 }}>{error}</div>}
-                    <form onSubmit={addMember} className="add-member-form">
-                      <div style={{ position: 'relative', flex: 1 }}>
-                        <UserPlus
-                          size={16}
-                          style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.25)' }}
-                        />
-                        <input
-                          type="email"
-                          value={memberEmail}
-                          onChange={(e) => { setMemberEmail(e.target.value); setError(''); }}
-                          placeholder="Add member by email"
-                          className="input-glass"
-                          style={{ paddingLeft: 40, minHeight: 40, fontSize: '0.875rem' }}
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        className="btn-add-member"
-                        disabled={addingMember || !memberEmail.trim()}
-                      >
-                        {addingMember ? <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : 'Add'}
-                      </button>
-                    </form>
-                  </div>
+                    </div>
+                  </motion.div>
                 )}
-              </div>
+              </AnimatePresence>
             </section>
 
             {/* Bills */}
-            <section>
+            <section className="bills-section">
               <div className="section-header">
                 <h2 className="section-label">Bills</h2>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div className="section-actions">
                   {household.splitwiseGroupId && (
                     <button
                       type="button"
@@ -514,7 +535,6 @@ export default function HouseholdPage() {
                       type="button"
                       className="btn-sm-primary"
                       onClick={() => setShowNewBill(true)}
-                      style={{ background: 'var(--gradient-start)', border: 'none', color: 'white', boxShadow: '0 4px 12px var(--gradient-shadow)' }}
                     >
                       <Plus size={14} />
                       New bill
@@ -614,24 +634,10 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
   }
 
   useEffect(() => {
-    let openTimer = 0;
-    let keyboardTimer = 0;
     let rafId = 0;
 
-    function focusAndReveal() {
-      const input = billNameInputRef.current;
-      if (!input) return;
-      try {
-        input.focus({ preventScroll: true });
-      } catch {
-        input.focus();
-      }
-      revealBillNameInput('smooth');
-      keyboardTimer = window.setTimeout(() => revealBillNameInput('smooth'), 380);
-    }
-
     rafId = window.requestAnimationFrame(() => {
-      openTimer = window.setTimeout(focusAndReveal, 120);
+      revealBillNameInput('smooth');
     });
 
     const viewport = window.visualViewport;
@@ -644,8 +650,6 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
 
     return () => {
       window.cancelAnimationFrame(rafId);
-      window.clearTimeout(openTimer);
-      window.clearTimeout(keyboardTimer);
       viewport?.removeEventListener('resize', handleViewportResize);
     };
   }, []);
@@ -878,7 +882,6 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
             placeholder="e.g. Dinner at Pizza Place"
             className="input-glass bill-name-input"
             style={{ minHeight: 40, padding: '10px 14px', fontSize: '0.875rem' }}
-            autoFocus
           />
         </div>
 
