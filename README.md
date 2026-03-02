@@ -230,6 +230,8 @@ Required for backend:
 | `MONGO_URI` | MongoDB connection string |
 | `JWT_SECRET` | JWT signing secret |
 | `FRONTEND_URL` | Frontend origin used in OAuth/callback behavior |
+| `BEDROCK_REGION` | AWS region for Bedrock runtime |
+| `AWS_BEARER_TOKEN_BEDROCK` | Bedrock API key used for non-HEIC receipt image extraction (`BEDROCK_API_KEY` also works) |
 | `SPLITWISE_CLIENT_ID` | Splitwise OAuth client id |
 | `SPLITWISE_CLIENT_SECRET` | Splitwise OAuth client secret |
 | `SPLITWISE_REDIRECT_URI` | OAuth redirect URI (must match Splitwise app settings) |
@@ -239,10 +241,23 @@ Optional:
 | Variable | Default |
 |---|---|
 | `JWT_EXPIRES_IN` | `7d` |
+| `BEDROCK_MODEL` | `anthropic.claude-3-haiku-20240307-v1:0` |
+| `OCR_IMAGE_PROVIDER` | `bedrock` |
+| `OCR_HEIC_PROVIDER` | `gemini` |
+| `OCR_TEXT_PROVIDER` | `bedrock` |
+| `GEMINI_API_KEY` | required only if you want `HEIC/HEIF` receipt uploads to fall back to Gemini |
+| `GEMINI_MODEL` | `gemini-2.5-flash` |
+| `GEMINI_API_VERSION` | `v1beta` |
+| `OCR_TEXT_CHAR_LIMIT` | `12000` |
+| `OCR_MAX_RAW_TEXT_CHARS` | `50000` |
 | `PORT` / `SERVER_PORT` | `3001` |
 | `SPLITWISE_BASE_URL` | `https://secure.splitwise.com` |
 | `SPLITWISE_API_BASE` | `https://secure.splitwise.com/api/v3.0` |
 | `SPLITWISE_STATE_SECRET` | falls back to `JWT_SECRET` |
+
+Receipt AI routing:
+- `HEIC/HEIF` uploads go to Gemini because Bedrock does not accept those image formats directly.
+- `JPG/PNG/WEBP/GIF` uploads go to Bedrock by default.
 
 ## Splitwise OAuth Setup
 
