@@ -101,7 +101,7 @@ All screenshots are sourced from `/screenshots`.
 </p>
 <p align="center"><em>Per-item participant selection and AI-assisted receipt extraction.</em></p>
 
-### 4. iOS PWA screenshots (single row)
+### 4. iOS PWA screenshots
 <p align="center">
   <img src="./screenshots/iphone-home.png" alt="iOS PWA home experience" width="32%" />
   <img src="./screenshots/iphone-group.png" alt="iOS PWA household page" width="32%" />
