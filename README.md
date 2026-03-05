@@ -1,181 +1,198 @@
 # SplitEasier
 
-SplitEasier is a full-stack app for itemized bill splitting across households, with optional Splitwise integration.
+SplitEasier is a full-stack, itemized bill-splitting app for roommates, trips, and shared households.  
+It combines precise per-item splitting, collaborative group management, AI receipt parsing, and optional Splitwise sync.
 
-It supports:
-- email/password auth
-- Splitwise OAuth login
-- household/group management
-- item-level bill splitting
-- push sync to Splitwise when creating/updating/deleting bills
-- pull sync from Splitwise expenses into local bills (with basic conflict detection)
-
-## Contents
-- Overview
-- Tech Stack
+## Table of Contents
+- Product Overview
+- Feature Highlights
 - Architecture
-- Core Flows
+- Screenshots
+- PWA Support
+- AWS Architecture (Bedrock + OCR)
 - Data Model
-- API Overview
-- Local Development
+- API Summary
+- Tech Stack
+- Project Structure
+- Local Setup
 - Environment Variables
-- Splitwise OAuth Setup
-- Running the App
-- Deployment on Vercel
-- Troubleshooting
+- Deployment
 - Security Notes
-- Scripts
+- License
 
-## Overview
+## Product Overview
+Traditional expense apps usually split totals evenly. SplitEasier is designed for real-world receipts where each person consumes different items.
 
-SplitEasier is designed for groups (roommates, trips, shared households) that need precise cost splits.  
-Instead of splitting totals evenly, each bill has line items and each item can be assigned to specific people.
+Core idea:
+- bills are broken into line items
+- each line item is assigned to one or more members
+- totals are calculated from actual participation, not rough averages
 
-When a household is linked to a Splitwise group:
-- local changes can be pushed to Splitwise
-- Splitwise changes can be pulled back into local bills
+The app supports:
+- email/password authentication
+- Splitwise OAuth sign-in
+- household creation and member management
+- create/edit/delete bills with item-level splits
+- AI receipt-to-items import
+- Splitwise push and pull synchronization with conflict detection
 
-## Tech Stack
-
-Frontend:
-- React 18
-- React Router
-- Vite
-- Vite PWA plugin
-- Motion + Lucide icons
-
-Backend:
-- Node.js + Express
-- MongoDB + Mongoose
-- JWT auth
-- Splitwise OAuth + REST API integration
-
-Deployment:
-- Vercel static build for frontend (`dist/`)
-- Vercel serverless function for API (`/api/index.js`)
+## Feature Highlights
+- Itemized bill logic: exact per-person shares based on item assignment.
+- Receipt AI import: upload an image and prefill bill name/items.
+- Household management: owner/member permissions and invite-by-email.
+- Splitwise integration:
+  - push local bill changes to Splitwise expenses
+  - pull Splitwise expenses back into local bills
+  - conflict marking when both local and remote changed
+- Responsive UX + PWA install support, including iOS standalone behavior.
 
 ## Architecture
+### High-level system
+```mermaid
+flowchart LR
+    U["User (Web / Mobile Browser)"] --> SPA["React SPA (Vite + React Router)"]
+    SPA --> SW["Service Worker (vite-plugin-pwa)"]
+    SPA --> API["Express API (/api)"]
+    API --> DB["MongoDB (Mongoose)"]
+    API --> SPLITWISE["Splitwise OAuth + API v3"]
+    API --> BEDROCK["Amazon Bedrock Runtime"]
+    API --> GEMINI["Google Gemini API (HEIC fallback)"]
+```
 
-Frontend app:
-- Entry: `src/main.jsx`
-- Routes: `src/App.jsx`
-- API client: `src/api/client.js`
-- Auth context: `src/context/AuthContext.jsx`
-- Pages:
-  - Landing: `src/pages/LandingPage.jsx`
-  - Login: `src/pages/Login.jsx`
-  - Signup: `src/pages/Signup.jsx`
-  - Dashboard: `src/pages/Dashboard.jsx`
-  - Household: `src/pages/HouseholdPage.jsx`
-  - Splitwise callback: `src/pages/SplitwiseCallback.jsx`
+### Splitwise sync lifecycle
+```mermaid
+flowchart TD
+    A["Create or edit local bill"] --> B["Push sync to Splitwise expense"]
+    B --> C["Store expenseId and remote updated timestamp"]
+    D["Manual pull sync from household page"] --> E["Fetch updated Splitwise expenses"]
+    E --> F{"Did local and remote both change?"}
+    F -- "Yes" --> G["Mark conflict and skip overwrite"]
+    F -- "No, remote changed" --> H["Update local bill from remote"]
+    F -- "No remote change" --> I["Skip"]
+```
 
-Backend app:
-- Express app: `server/app.js`
-- Server startup: `server/index.js`
-- DB connector: `server/db.js`
-- Auth middleware: `server/middleware/auth.js`
-- Splitwise helper: `server/lib/splitwise.js`
-- Routes:
-  - `server/routes/auth.js`
-  - `server/routes/users.js`
-  - `server/routes/households.js`
-  - `server/routes/bills.js`
-  - `server/routes/splitwise.js`
+### Runtime components
+- Frontend: `src/main.jsx`, `src/App.jsx`, `src/pages/*`
+- API server: `server/app.js`, `server/routes/*`, `server/lib/*`
+- Serverless bridge (Vercel): `api/index.js`
+- Database models: `server/models/User.js`, `server/models/Household.js`, `server/models/Bill.js`
 
-Vercel serverless API bridge:
-- `api/index.js` exports `server/app.js`
+## Screenshots
+All screenshots are sourced from `/screenshots`.
 
-## Core Flows
+### 1. Landing + authentication
+<p align="center">
+  <img src="./screenshots/landing-page.png" alt="SplitEasier landing page" width="48%" />
+  <img src="./screenshots/login-page.png" alt="SplitEasier login page with Splitwise sign-in option" width="48%" />
+</p>
+<p align="center"><em>Public marketing page and sign-in flow.</em></p>
 
-### 1. Auth
-- Register/login via email and password.
-- Splitwise OAuth login can create/link local users.
-- JWT token is stored in localStorage and sent as `Authorization: Bearer <token>`.
+### 2. Household and bill workspace
+<p align="center">
+  <img src="./screenshots/group-page.png" alt="Household details with members and bills" width="48%" />
+  <img src="./screenshots/bill-page.png" alt="Saved bill card with per-member totals and breakdown" width="48%" />
+</p>
+<p align="center"><em>Household-level collaboration and saved bill breakdowns.</em></p>
 
-### 2. Households
-- Create local households manually.
-- Or import Splitwise groups via `POST /api/households/import-splitwise`.
-- Imported groups are linked using `splitwiseGroupId`.
+### 3. Item assignment and AI import
+<p align="center">
+  <img src="./screenshots/choose-people-per-item.png" alt="Choose specific members per item while drafting bill" width="48%" />
+  <img src="./screenshots/imported-items-ai.png" alt="Bill draft auto-filled from receipt image using AI extraction" width="48%" />
+</p>
+<p align="center"><em>Per-item participant selection and AI-assisted receipt extraction.</em></p>
 
-### 3. Bills
-- Create/update/delete bills within a household.
-- Each bill includes:
-  - bill name
-  - items
-  - per-member totals
-- Only bill creator can edit/delete that bill.
+### 4. iOS PWA screenshots (single row)
+<p align="center">
+  <img src="./screenshots/iphone-home.png" alt="iOS PWA home experience" width="32%" />
+  <img src="./screenshots/iphone-group.png" alt="iOS PWA household page" width="32%" />
+  <img src="./screenshots/iphone-bill.png" alt="iOS PWA bill screen" width="32%" />
+</p>
 
-### 4. Splitwise sync
+## PWA Support
+SplitEasier is configured as a Progressive Web App via `vite-plugin-pwa`.
 
-Push sync (local -> Splitwise):
-- On bill create: create Splitwise expense.
-- On bill edit: update existing Splitwise expense (or create if missing).
-- On bill delete: delete Splitwise expense if mapped.
+Implemented behavior:
+- service worker registration: `registerSW({ immediate: true })`
+- `autoUpdate` registration strategy
+- standalone manifest configuration:
+  - `display: standalone`
+  - `start_url: /`
+  - icon set (`icon-192`, `icon-512`, `icon.svg`)
+- API safety rule: Workbox navigation fallback explicitly excludes `/api/*`
+- iOS-specific runtime classes:
+  - `is-ios`
+  - `is-standalone`
+- iOS standalone route handling:
+  - when launched as standalone and unauthenticated, `/` redirects to `/login`
 
-Pull sync (Splitwise -> local):
-- Triggered from household page via **Sync Splitwise** button.
-- Calls `POST /api/households/:id/sync-splitwise`.
-- Imports/updates/deletes local bills based on Splitwise expenses.
-- Uses metadata for conflict detection.
+### PWA architecture
+```mermaid
+flowchart TD
+    A["User opens app"] --> B["Service worker registered immediately"]
+    B --> C["App shell + static assets cached"]
+    C --> D["Subsequent visits load fast from cache + network updates"]
+    D --> E["API calls always go to network (/api excluded from SPA fallback)"]
+```
 
-Conflict rule (current):
-- If local changed since last sync AND remote changed since last known remote update, mark conflict and do not auto-overwrite.
+## AWS Architecture (Bedrock + OCR)
+SplitEasier's current AWS integration is focused on AI receipt extraction through Amazon Bedrock Runtime.
+
+### Current AWS touchpoints
+- Amazon Bedrock Runtime endpoint (`bedrock-runtime.<region>.amazonaws.com`)
+- Model configured via `BEDROCK_MODEL`
+- Region configured via `BEDROCK_REGION`
+- Auth via `AWS_BEARER_TOKEN_BEDROCK` (or `BEDROCK_API_KEY`)
+
+### OCR provider routing
+- non-HEIC images (`jpg/png/webp/gif`) -> Bedrock (default)
+- HEIC/HEIF -> Gemini fallback (`OCR_HEIC_PROVIDER=gemini` by default)
+
+### Receipt ingestion flow
+```mermaid
+flowchart LR
+    UI["Upload receipt image in New Bill form"] --> OCRAPI["POST /api/households/:id/bills/ocr"]
+    OCRAPI --> ROUTE{"Image type"}
+    ROUTE -- "JPG/PNG/WEBP/GIF" --> BR["Bedrock Converse API"]
+    ROUTE -- "HEIC/HEIF" --> GM["Gemini generateContent API"]
+    BR --> NORM["Normalize + validate JSON items"]
+    GM --> NORM
+    NORM --> PREFILL["Return billName + line items to UI"]
+```
 
 ## Data Model
+### `User`
+- identity: `email`, `name`, `passwordHash`
+- external link: `splitwise.id`
+- tokens: `splitwise.accessToken`, `refreshToken`, `expiresAt`
 
-### User (`server/models/User.js`)
-- `email`
-- `passwordHash`
-- `name`
-- `splitwise`:
-  - `id`
-  - `accessToken`
-  - `refreshToken`
-  - `tokenType`
-  - `expiresAt`
+### `Household`
+- ownership/membership: `ownerId`, `memberIds`
+- Splitwise link: `splitwiseGroupId`, `splitwiseGroupName`
+- sync cursor: `splitwiseLastCursor`, `splitwiseLastPulledAt`
 
-### Household (`server/models/Household.js`)
-- `name`
-- `ownerId`
-- `memberIds`
-- `splitwiseGroupId`
-- `splitwiseGroupName`
-- `splitwiseLastPulledAt`
-- `splitwiseLastCursor`
-
-### Bill (`server/models/Bill.js`)
-- `householdId`
-- `billName`
-- `items[]`
-- `totals`
-- `totalAmount`
-- `createdBy`
-- `splitwiseSync`:
-  - `status` (`pending|synced|failed|skipped`)
-  - `expenseId`
-  - `syncedAt`
-  - `lastAttemptAt`
-  - `error`
-  - `expenseUpdatedAt`
-  - `lastLocalEditAt`
-  - `lastSyncDirection` (`push|pull`)
+### `Bill`
+- composition: `billName`, `items[]`, `totalAmount`, `totals`
+- ownership: `createdBy`, `householdId`
+- sync metadata (`splitwiseSync`):
+  - `status` (`pending | synced | failed | skipped`)
+  - `expenseId`, `expenseUpdatedAt`
+  - `lastLocalEditAt`, `lastSyncDirection`
   - `conflict`
 
-## API Overview
-
+## API Summary
 Base path: `/api`
 
-Auth:
+### Auth
 - `POST /auth/register`
 - `POST /auth/login`
 - `GET /auth/splitwise/start`
 - `GET /auth/splitwise/callback`
 
-Users:
+### Users
 - `GET /users/me`
 - `GET /users/search?q=...`
 
-Households:
+### Households
 - `GET /households`
 - `POST /households`
 - `GET /households/:id`
@@ -185,177 +202,145 @@ Households:
 - `POST /households/import-splitwise`
 - `POST /households/:id/sync-splitwise`
 
-Bills:
+### Bills
 - `GET /households/:householdId/bills`
 - `POST /households/:householdId/bills`
 - `GET /households/:householdId/bills/:billId`
 - `PATCH /households/:householdId/bills/:billId`
 - `DELETE /households/:householdId/bills/:billId`
+- `POST /households/:householdId/bills/ocr`
 
-Splitwise passthrough routes:
+### Splitwise passthrough
 - `GET /splitwise/connection`
 - `GET /splitwise/current-user`
 - `GET /splitwise/groups`
 - `GET /splitwise/expenses`
 - `POST /splitwise/expenses`
 
-## Local Development
+## Tech Stack
+Frontend:
+- React 18
+- React Router
+- Motion (`motion/react`)
+- Vite
+- `vite-plugin-pwa`
 
+Backend:
+- Node.js + Express
+- MongoDB + Mongoose
+- JWT (`jsonwebtoken`)
+- Splitwise OAuth + REST integration
+
+AI/OCR:
+- Amazon Bedrock Runtime (primary)
+- Google Gemini (HEIC fallback route by default)
+
+Deployment:
+- Vercel static frontend build (`dist/`)
+- Vercel serverless API entry (`api/index.js`)
+
+## Project Structure
+```text
+.
+├── api/                  # Vercel serverless bridge
+├── public/               # PWA icons/assets
+├── screenshots/          # README screenshots
+├── server/
+│   ├── lib/              # OCR + Splitwise helpers
+│   ├── middleware/       # JWT auth middleware
+│   ├── models/           # Mongoose models
+│   └── routes/           # API routes
+├── src/
+│   ├── api/              # frontend API client
+│   ├── components/       # UI components
+│   ├── context/          # auth/theme state
+│   └── pages/            # routed pages
+├── vite.config.js
+└── vercel.json
+```
+
+## Local Setup
 ### Prerequisites
-- Node.js 18+ (recommended)
+- Node.js 18+
 - npm
-- MongoDB (Atlas or local instance)
-- Splitwise developer app (for OAuth)
+- MongoDB URI
+- Splitwise dev app (for OAuth flows)
 
-### Install
-
+### 1) Install dependencies
 ```bash
 npm install
 ```
 
-### Environment
-
-Copy `.env.example` to `.env` and fill values:
-
+### 2) Configure environment
 ```bash
 cp .env.example .env
 ```
 
-## Environment Variables
+Set required values in `.env`.
 
-Required for backend:
-
-| Variable | Purpose |
-|---|---|
-| `MONGO_URI` | MongoDB connection string |
-| `JWT_SECRET` | JWT signing secret |
-| `FRONTEND_URL` | Frontend origin used in OAuth/callback behavior |
-| `BEDROCK_REGION` | AWS region for Bedrock runtime |
-| `AWS_BEARER_TOKEN_BEDROCK` | Bedrock API key used for non-HEIC receipt image extraction (`BEDROCK_API_KEY` also works) |
-| `SPLITWISE_CLIENT_ID` | Splitwise OAuth client id |
-| `SPLITWISE_CLIENT_SECRET` | Splitwise OAuth client secret |
-| `SPLITWISE_REDIRECT_URI` | OAuth redirect URI (must match Splitwise app settings) |
-
-Optional:
-
-| Variable | Default |
-|---|---|
-| `JWT_EXPIRES_IN` | `7d` |
-| `BEDROCK_MODEL` | `anthropic.claude-3-haiku-20240307-v1:0` |
-| `OCR_IMAGE_PROVIDER` | `bedrock` |
-| `OCR_HEIC_PROVIDER` | `gemini` |
-| `OCR_TEXT_PROVIDER` | `bedrock` |
-| `GEMINI_API_KEY` | required only if you want `HEIC/HEIF` receipt uploads to fall back to Gemini |
-| `GEMINI_MODEL` | `gemini-2.5-flash` |
-| `GEMINI_API_VERSION` | `v1beta` |
-| `OCR_TEXT_CHAR_LIMIT` | `12000` |
-| `OCR_MAX_RAW_TEXT_CHARS` | `50000` |
-| `PORT` / `SERVER_PORT` | `3001` |
-| `SPLITWISE_BASE_URL` | `https://secure.splitwise.com` |
-| `SPLITWISE_API_BASE` | `https://secure.splitwise.com/api/v3.0` |
-| `SPLITWISE_STATE_SECRET` | falls back to `JWT_SECRET` |
-
-Receipt AI routing:
-- `HEIC/HEIF` uploads go to Gemini because Bedrock does not accept those image formats directly.
-- `JPG/PNG/WEBP/GIF` uploads go to Bedrock by default.
-
-## Splitwise OAuth Setup
-
-In Splitwise developer settings, configure redirect URI to exactly match your env:
-
-Local:
-- `http://localhost:5173/api/auth/splitwise/callback`
-
-Vercel example:
-- `https://your-domain.vercel.app/api/auth/splitwise/callback`
-
-Important:
-- `SPLITWISE_REDIRECT_URI` and Splitwise app redirect must match exactly.
-- If this is wrong, OAuth may appear to work partially but imports/sync will fail.
-
-## Running the App
-
-Run backend:
-
+### 3) Run backend
 ```bash
 npm run server
 ```
 
-Run frontend (separate terminal):
-
+### 4) Run frontend
 ```bash
 npm run dev
 ```
 
-Open:
-- `http://localhost:5173`
+Frontend runs on `http://localhost:5173` and proxies `/api` to `http://localhost:3001`.
 
-Vite proxies `/api/*` to `http://localhost:3001` in local dev (`vite.config.js`).
+## Environment Variables
+### Required
+| Variable | Purpose |
+|---|---|
+| `MONGO_URI` | MongoDB connection string |
+| `JWT_SECRET` | JWT signing secret |
+| `FRONTEND_URL` | Frontend origin for callback behavior |
+| `SPLITWISE_CLIENT_ID` | Splitwise OAuth app client ID |
+| `SPLITWISE_CLIENT_SECRET` | Splitwise OAuth app secret |
+| `SPLITWISE_REDIRECT_URI` | Splitwise OAuth callback URI |
 
-## Deployment on Vercel
+### AI / OCR
+| Variable | Default | Purpose |
+|---|---|---|
+| `BEDROCK_REGION` | `us-east-1` | Bedrock runtime region |
+| `BEDROCK_MODEL` | `anthropic.claude-3-haiku-20240307-v1:0` | Bedrock model ID |
+| `AWS_BEARER_TOKEN_BEDROCK` | - | Bedrock bearer auth token |
+| `OCR_IMAGE_PROVIDER` | `bedrock` | Provider for standard image OCR extraction |
+| `OCR_HEIC_PROVIDER` | `gemini` | Provider for HEIC/HEIF extraction |
+| `GEMINI_API_KEY` | - | Needed when Gemini route is active |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model |
 
-This repo uses:
-- frontend static output: `dist`
-- API function: `api/index.js` -> Express app
-- rewrites in `vercel.json`
+### Optional
+| Variable | Default |
+|---|---|
+| `JWT_EXPIRES_IN` | `7d` |
+| `OCR_TEXT_CHAR_LIMIT` | `12000` |
+| `OCR_MAX_RAW_TEXT_CHARS` | `50000` |
+| `SPLITWISE_BASE_URL` | `https://secure.splitwise.com` |
+| `SPLITWISE_API_BASE` | `https://secure.splitwise.com/api/v3.0` |
+| `SPLITWISE_STATE_SECRET` | falls back to `JWT_SECRET` |
+| `PORT` / `SERVER_PORT` | `3001` |
 
-`vercel.json` rewrites:
-- `/api/:path*` -> `/api`
-- non-API routes -> `/index.html`
+## Deployment
+Current deployment model:
+- frontend: Vite build output in `dist/`
+- backend: serverless function through `api/index.js` (exports Express app)
+- rewrites configured in `vercel.json`:
+  - `/api/:path* -> /api`
+  - non-API routes -> `/index.html`
 
-Recommended Vercel environment variables:
-- all backend env vars listed above
-- `FRONTEND_URL` set to your deployed origin
-- `SPLITWISE_REDIRECT_URI` set to deployed callback URL
-
-After deploy:
-1. Login
-2. Import Splitwise groups from dashboard
-3. Open a linked household (must show linked group)
-4. Use **Sync Splitwise** in Bills section
-
-## Troubleshooting
-
-### Sync button not visible
-The button is shown only when household has `splitwiseGroupId`.
-
-Checklist:
-- Imported Splitwise groups successfully
-- Household displays "Linked Splitwise group: ..."
-- You are on latest deployment/commit
-- Clear PWA cache/service worker if stale UI appears
-
-### OAuth callback issues
-- Verify `SPLITWISE_REDIRECT_URI` exactly matches Splitwise app config.
-- Verify `FRONTEND_URL` matches deploy origin.
-
-### Splitwise connected but import/sync fails
-- Check `/api/splitwise/connection` response while authenticated.
-- Confirm member mappings include Splitwise user IDs.
-
-### Bill delete behavior
-- If bill has `splitwiseSync.expenseId`, deletion attempts remote delete first.
-- If remote delete fails, local delete is blocked.
-
-### Conflicts during pull sync
-- Conflict means both local and remote changed since last sync.
-- Current behavior marks conflict and skips overwrite.
+Build command:
+```bash
+npm run build
+```
 
 ## Security Notes
-- Never commit `.env`.
-- Use strong random values for `JWT_SECRET` and `SPLITWISE_STATE_SECRET`.
-- Use HTTPS in production.
-- Rotate leaked secrets immediately.
+- JWT-based API authentication for protected routes.
+- Splitwise tokens are stored server-side under `User.splitwise`.
+- Input and permission checks are enforced in household/bill routes.
+- Conflict-safe pull sync avoids silent data overwrite when local and remote changed.
 
-## Scripts
-
-Root `package.json`:
-- `npm run dev` -> run Vite dev server
-- `npm run build` -> production frontend build
-- `npm run preview` -> preview built frontend
-- `npm run server` -> run Node backend
-- `npm run server:watch` -> run backend with watch mode
-
-Server `server/package.json` (optional direct run):
-- `npm --prefix server run start`
-- `npm --prefix server run dev`
+## License
+MIT License. See `LICENSE`.
