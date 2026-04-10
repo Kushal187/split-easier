@@ -101,26 +101,29 @@ function normalizeGeminiModelName(model) {
 
 function buildAiReceiptInstructions() {
   return [
-    'Extract every purchasable line item from this receipt.',
+    'Extract every purchasable line item from this receipt or order summary.',
+    '',
+    'The image may be a store receipt, an online order confirmation (e.g. Amazon, Instacart, Walmart), or a restaurant bill.',
     '',
     'INCLUDE:',
     '- Each individual product/item the customer bought',
-    '- The final extended price for each item (qty x unit price already multiplied)',
-    '- For weighted/produce items, the final computed line price only',
-    '- Tax (as a separate item if present)',
-    '- Service charge or gratuity (as a separate item if present)',
-    '- Tip (voluntary, customer-written as a separate item if present)',
+    '- For each item, report the unit price exactly as shown and the quantity (default 1 if not shown)',
+    '- For weighted/produce items (e.g. "$3.49/lb", "1.83 lbs"), set unitPrice to the per-lb price and quantity to the weight in lbs',
+    '- Tax (as a separate item if present, quantity 1)',
+    '- Service charge or gratuity (as a separate item if present, quantity 1)',
+    '- Tip (voluntary, customer-written as a separate item if present, quantity 1)',
     '',
     'EXCLUDE (never include these as items):',
     '- Subtotal, total, grand total, balance due',
     '- Savings, discounts, coupons (as standalone lines)',
     '- Payment method lines (VISA, cash, change due)',
+    '- Shipping, handling, or delivery fee lines',
     '- Store name, address, phone, date, cashier, register metadata',
-    '- Standalone quantity or unit-price fragments that aren\'t a final line total',
     '',
     'FORMATTING:',
     '- "name": short, readable product name (trim codes/SKUs). Use "Tax", "Service Charge", or "Tip" for those lines.',
-    '- "amount": positive number representing the final dollar amount for that line',
+    '- "unitPrice": the per-unit dollar amount exactly as shown on the receipt (do NOT multiply)',
+    '- "quantity": number of units or weight (default 1 if not shown)',
     '- "billName": derive from the store/merchant name if visible, otherwise use "Receipt"',
   ].join('\n');
 }
@@ -163,12 +166,31 @@ function normalizeAiItem(item) {
   if (!item || typeof item !== 'object') return null;
   const rawName = item.name ?? item.item ?? item.description ?? item.product ?? item.title ?? '';
   const name = cleanLine(rawName);
-  const amount = parseAmount(item.amount ?? item.price ?? item.total ?? item.cost ?? item.lineTotal);
+
+  const unitPrice = parseAmount(item.unitPrice ?? item.unit_price);
+  const quantity = parseAmount(item.quantity ?? item.qty);
+  let amount;
+  let finalUnitPrice;
+  let finalQuantity;
+  if (Number.isFinite(unitPrice) && unitPrice > 0) {
+    finalUnitPrice = Math.round(unitPrice * 100) / 100;
+    finalQuantity = Number.isFinite(quantity) && quantity > 0 ? Math.round(quantity * 100) / 100 : 1;
+    amount = finalUnitPrice * finalQuantity;
+  } else {
+    // Fallback: model returned a flat amount (legacy or simple receipts)
+    amount = parseAmount(item.amount ?? item.price ?? item.total ?? item.cost ?? item.lineTotal);
+    finalUnitPrice = Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
+    finalQuantity = 1;
+  }
+
   if (!name || !Number.isFinite(amount) || amount <= 0) return null;
   if (/^(?:subtotal|sub total|total|grand total|balance due)$/i.test(name)) return null;
+
   return {
     name: name.slice(0, 120),
-    amount: Math.round(amount * 100) / 100
+    amount: Math.round(amount * 100) / 100,
+    unitPrice: finalUnitPrice,
+    quantity: finalQuantity
   };
 }
 
@@ -306,9 +328,10 @@ async function runGeminiReceiptRequest({
                 type: 'OBJECT',
                 properties: {
                   name: { type: 'STRING' },
-                  amount: { type: 'NUMBER' }
+                  unitPrice: { type: 'NUMBER' },
+                  quantity: { type: 'NUMBER' }
                 },
-                required: ['name', 'amount']
+                required: ['name', 'unitPrice']
               }
             }
           },

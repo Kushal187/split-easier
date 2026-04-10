@@ -5,6 +5,8 @@ const itemSchema = new mongoose.Schema(
     id: { type: String, required: true },
     name: { type: String, required: true },
     amount: { type: Number, required: true },
+    quantity: { type: Number, default: 1 },
+    unitPrice: { type: Number, default: null },
     splitBetween: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
   },
   { _id: false }

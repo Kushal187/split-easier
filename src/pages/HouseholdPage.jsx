@@ -641,7 +641,7 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
   const cardRef = useRef(null);
   const billNameInputRef = useRef(null);
   const [billName, setBillName] = useState(initialBill?.billName || '');
-  const [itemForm, setItemForm] = useState({ name: '', amount: '', splitBetween: [] });
+  const [itemForm, setItemForm] = useState({ name: '', amount: '', quantity: 1, splitBetween: [] });
   const [items, setItems] = useState(
     (initialBill?.items || []).map((i) => ({
       id: i.id || createClientId(),
@@ -692,13 +692,15 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
   }
 
   function addItem() {
-    const amount = normalizeAmount(itemForm.amount);
+    const unitPrice = normalizeAmount(itemForm.amount);
+    const quantity = Number(itemForm.quantity) || 1;
+    const amount = normalizeAmount(unitPrice * quantity);
     if (!itemForm.name.trim()) {
       setError('Item name is required.');
       return;
     }
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setError('Amount must be greater than 0.');
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+      setError('Price must be greater than 0.');
       return;
     }
     if (itemForm.splitBetween.length === 0) {
@@ -711,10 +713,12 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
         id: createClientId(),
         name: itemForm.name.trim(),
         amount,
+        unitPrice,
+        quantity,
         splitBetween: [...itemForm.splitBetween]
       }
     ]);
-    setItemForm({ name: '', amount: '', splitBetween: [] });
+    setItemForm({ name: '', amount: '', quantity: 1, splitBetween: [] });
     setError('');
   }
 
@@ -722,7 +726,14 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
     setItems((prev) =>
       prev.map((item) => {
         if (item.id !== itemId) return item;
-        return { ...item, ...patch };
+        const updated = { ...item, ...patch };
+        // Recompute amount when quantity or unitPrice changes
+        if ('quantity' in patch || 'unitPrice' in patch) {
+          const qty = Number(updated.quantity) || 1;
+          const up = Number(updated.unitPrice) || 0;
+          updated.amount = normalizeAmount(qty * up);
+        }
+        return updated;
       })
     );
   }
@@ -812,12 +823,19 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
 
       const splitBetween = members.map((m) => m.id);
       const parsedItems = (extracted?.items || [])
-        .map((item) => ({
-          id: createClientId(),
-          name: String(item?.name || '').trim() || 'Item',
-          amount: normalizeAmount(item?.amount),
-          splitBetween: [...splitBetween]
-        }))
+        .map((item) => {
+          const unitPrice = normalizeAmount(item?.unitPrice);
+          const quantity = Number(item?.quantity) || 1;
+          const amount = normalizeAmount(item?.amount) || normalizeAmount(unitPrice * quantity);
+          return {
+            id: createClientId(),
+            name: String(item?.name || '').trim() || 'Item',
+            amount,
+            unitPrice: unitPrice || amount,
+            quantity,
+            splitBetween: [...splitBetween]
+          };
+        })
         .filter((item) => item.name && Number.isFinite(item.amount) && item.amount > 0);
 
       if (!parsedItems.length) {
@@ -857,7 +875,9 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
     const totals = {};
     members.forEach((m) => (totals[m.id] = 0));
     items.forEach((item) => {
-      const amount = normalizeAmount(item.amount);
+      const up = Number(item.unitPrice);
+      const qty = Number(item.quantity) || 1;
+      const amount = Number.isFinite(up) && up > 0 ? normalizeAmount(up * qty) : normalizeAmount(item.amount);
       if (amount <= 0 || item.splitBetween.length === 0) return;
       const share = amount / item.splitBetween.length;
       item.splitBetween.forEach((userId) => {
@@ -878,12 +898,19 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
     }
 
     const allowedMemberIds = new Set(members.map((m) => m.id));
-    const normalizedItems = items.map((item) => ({
-      id: item.id || createClientId(),
-      name: item.name?.trim() || '',
-      amount: normalizeAmount(item.amount),
-      splitBetween: [...new Set((item.splitBetween || []).filter((id) => allowedMemberIds.has(id)))]
-    }));
+    const normalizedItems = items.map((item) => {
+      const qty = Number(item.quantity) || 1;
+      const up = Number(item.unitPrice);
+      const amount = Number.isFinite(up) && up > 0 ? normalizeAmount(up * qty) : normalizeAmount(item.amount);
+      return {
+        id: item.id || createClientId(),
+        name: item.name?.trim() || '',
+        amount,
+        quantity: qty,
+        unitPrice: Number.isFinite(up) && up > 0 ? normalizeAmount(up) : amount,
+        splitBetween: [...new Set((item.splitBetween || []).filter((id) => allowedMemberIds.has(id)))]
+      };
+    });
 
     const invalidNameIndex = normalizedItems.findIndex((item) => !item.name);
     if (invalidNameIndex >= 0) {
@@ -922,7 +949,11 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
   }
 
   const draftTotals = buildTotals();
-  const draftTotal = items.reduce((sum, i) => sum + normalizeAmount(i.amount), 0);
+  const draftTotal = items.reduce((sum, i) => {
+    const up = Number(i.unitPrice);
+    const qty = Number(i.quantity) || 1;
+    return sum + (Number.isFinite(up) && up > 0 ? normalizeAmount(up * qty) : normalizeAmount(i.amount));
+  }, 0);
 
   return (
     <motion.div
@@ -1003,20 +1034,20 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
               className="section-card-panel"
             >
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div className="new-bill-grid">
-                  <div>
-                    <label className="label-glass" style={{ fontSize: '0.75rem', marginBottom: 6 }}>Item name</label>
-                    <input
-                      type="text"
-                      value={itemForm.name}
-                      onChange={(e) => setItemForm((c) => ({ ...c, name: e.target.value }))}
-                      placeholder="e.g. Margherita Pizza"
-                      className="input-glass"
-                      style={{ minHeight: 40, padding: '10px 12px', fontSize: '0.875rem' }}
-                    />
-                  </div>
-                  <div>
-                    <label className="label-glass" style={{ fontSize: '0.75rem', marginBottom: 6 }}>Amount ($)</label>
+                <div>
+                  <label className="label-glass" style={{ fontSize: '0.75rem', marginBottom: 6 }}>Item name</label>
+                  <input
+                    type="text"
+                    value={itemForm.name}
+                    onChange={(e) => setItemForm((c) => ({ ...c, name: e.target.value }))}
+                    placeholder="e.g. Margherita Pizza"
+                    className="input-glass"
+                    style={{ minHeight: 40, padding: '10px 12px', fontSize: '0.875rem' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+                  <div style={{ flex: 1 }}>
+                    <label className="label-glass" style={{ fontSize: '0.75rem', marginBottom: 6 }}>Price ($)</label>
                     <input
                       type="number"
                       min="0"
@@ -1028,6 +1059,25 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
                       style={{ minHeight: 40, padding: '10px 12px', fontSize: '0.875rem' }}
                     />
                   </div>
+                  <span style={{ color: 'var(--text-muted-3)', fontSize: '0.8rem', paddingBottom: 12 }}>x</span>
+                  <div style={{ flex: 0, minWidth: 60 }}>
+                    <label className="label-glass" style={{ fontSize: '0.75rem', marginBottom: 6 }}>Qty</label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={itemForm.quantity}
+                      onChange={(e) => setItemForm((c) => ({ ...c, quantity: e.target.value }))}
+                      placeholder="1"
+                      className="input-glass"
+                      style={{ minHeight: 40, padding: '10px 12px', fontSize: '0.875rem' }}
+                    />
+                  </div>
+                  {normalizeAmount(itemForm.amount) > 0 && Number(itemForm.quantity) > 1 && (
+                    <span style={{ color: 'var(--text-muted-3)', fontSize: '0.8rem', paddingBottom: 12 }}>
+                      = {formatMoney(normalizeAmount(normalizeAmount(itemForm.amount) * (Number(itemForm.quantity) || 1)))}
+                    </span>
+                  )}
                 </div>
 
                 <div>
@@ -1085,18 +1135,33 @@ function NewBillForm({ householdId, members, onSaved, onCancel, initialBill = nu
                           type="text"
                           value={item.name}
                           onChange={(e) => updateItem(item.id, { name: e.target.value })}
-                          className="input-glass added-item-input"
+                          className="input-glass added-item-input added-item-name"
                           placeholder="Item name"
                         />
                         <input
                           type="number"
                           min="0"
                           step="0.01"
-                          value={item.amount}
-                          onChange={(e) => updateItem(item.id, { amount: e.target.value })}
-                          className="input-glass added-item-input"
-                          placeholder="0.00"
+                          value={item.unitPrice ?? item.amount}
+                          onChange={(e) => updateItem(item.id, { unitPrice: e.target.value })}
+                          className="input-glass added-item-input added-item-price"
+                          placeholder="Price"
+                          title="Unit price"
                         />
+                        <span className="added-item-x">x</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={item.quantity ?? 1}
+                          onChange={(e) => updateItem(item.id, { quantity: e.target.value })}
+                          className="input-glass added-item-input added-item-qty"
+                          placeholder="Qty"
+                          title="Quantity"
+                        />
+                        <span className="added-item-total">
+                          = {formatMoney(normalizeAmount((Number(item.unitPrice ?? item.amount) || 0) * (Number(item.quantity) || 1)))}
+                        </span>
                       </div>
                       <div className="new-bill-chips added-item-chips">
                         {members.map((member) => {

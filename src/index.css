@@ -1518,16 +1518,44 @@ a:hover {
 }
 
 .added-item-fields {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 150px;
-  gap: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 8px;
+  flex-wrap: nowrap;
 }
 
 .added-item-input {
   min-height: 40px;
   padding: 9px 12px;
   font-size: 0.875rem;
+}
+
+.added-item-name {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.added-item-price {
+  flex: 0 0 75px;
+}
+
+.added-item-x {
+  color: var(--text-muted-3);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.added-item-qty {
+  flex: 0 0 50px;
+}
+
+.added-item-total {
+  color: var(--text-muted-3);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+  min-width: 60px;
+  text-align: right;
 }
 
 .added-item-chips {
@@ -1593,7 +1621,23 @@ a:hover {
 
 @media (max-width: 720px) {
   .added-item-fields {
-    grid-template-columns: 1fr;
+    flex-wrap: wrap;
+  }
+
+  .added-item-name {
+    flex: 1 0 100%;
+  }
+
+  .added-item-price {
+    flex: 1 1 0;
+  }
+
+  .added-item-qty {
+    flex: 0 0 45px;
+  }
+
+  .added-item-total {
+    min-width: auto;
   }
 }
 

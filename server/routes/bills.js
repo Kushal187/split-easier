@@ -37,10 +37,14 @@ function buildTotals(items) {
 function normalizeItems(rawItems, allowedMemberIds) {
   return rawItems.map((item) => {
     const splitBetween = (item.splitBetween || []).filter((id) => allowedMemberIds.includes(id.toString()));
+    const quantity = Number(item.quantity) || 1;
+    const unitPrice = Number(item.unitPrice) || null;
     return {
       id: item.id || crypto.randomUUID(),
       name: item.name?.trim() ?? '',
       amount: Number(item.amount) || 0,
+      quantity,
+      unitPrice,
       splitBetween: splitBetween.map((id) => (typeof id === 'string' ? id : id.toString()))
     };
   });
