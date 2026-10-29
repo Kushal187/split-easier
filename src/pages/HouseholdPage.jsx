@@ -17,6 +17,7 @@ import {
   Pencil,
   Trash2,
   RefreshCw,
+  Copy,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { BrandIcon, BrandWordmark } from '../components/BrandLogo.jsx';
@@ -176,11 +177,34 @@ function buildBreakdown(items) {
   return breakdown;
 }
 
+/** Plain-text itemized split for pasting into Splitwise (or a group chat). */
+function buildSplitText(bill) {
+  const names = bill.memberNames || {};
+  const breakdown = buildBreakdown(bill.items);
+  const lines = [`${bill.billName} - ${formatMoney(bill.totalAmount)}`];
+  Object.keys(bill.totals || {}).forEach((userId) => {
+    lines.push('', `${formatDisplayName(names[userId]) || userId}: ${formatMoney(bill.totals[userId] ?? 0)}`);
+    (breakdown[userId] || []).forEach((e) => lines.push(`  - ${e.name}: ${formatMoney(e.share)}`));
+  });
+  return lines.join('\n');
+}
+
 function SavedBillCard({ bill, canEdit, onEdit, onDelete, deleting }) {
   const [expandedUserIds, setExpandedUserIds] = useState(() => new Set());
+  const [copied, setCopied] = useState(false);
   const names = bill.memberNames || {};
   const totalKeys = bill.totals ? Object.keys(bill.totals) : [];
   const breakdown = buildBreakdown(bill.items);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(buildSplitText(bill));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      alert('Could not copy to clipboard.');
+    }
+  }
 
   function toggleExpanded(userId) {
     setExpandedUserIds((prev) => {
@@ -207,22 +231,32 @@ function SavedBillCard({ bill, canEdit, onEdit, onDelete, deleting }) {
               <div className="bill-card-total-label">Total</div>
               <div className="bill-card-total-value">{formatMoney(bill.totalAmount)}</div>
             </div>
-          {canEdit && (
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button type="button" className="icon-button" onClick={onEdit} title="Edit bill">
-                <Pencil size={14} />
-              </button>
-              <button
-                type="button"
-                className="icon-button icon-button--danger"
-                onClick={onDelete}
-                disabled={deleting}
-                title="Delete bill"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          )}
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={handleCopy}
+              title={copied ? 'Copied!' : 'Copy itemized split'}
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+            {canEdit && (
+              <>
+                <button type="button" className="icon-button" onClick={onEdit} title="Edit bill">
+                  <Pencil size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button icon-button--danger"
+                  onClick={onDelete}
+                  disabled={deleting}
+                  title="Delete bill"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
       <div className="bill-card-body">
